@@ -24,7 +24,7 @@ game_data = {
 }
 
 # ===== CONSTANTS =====
-BOT_TOKEN = "6793457727:AAEcGobF9M7tJ7tQ46k3igL3qFcmlVIJzAU"  # Ganti dengan token bot Anda
+BOT_TOKEN = "6864590652:AAHhkS03TwV-IvUET4iDnZf0Qh5YJLRMW-k"  # Ganti dengan token bot Anda
 REQUIRED_PLAYERS = 5
 LEADERS_KPK = ['jaksa', 'penyidik']
 SPECIAL_KPK = ['whistleblower', 'analis']
