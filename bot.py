@@ -456,8 +456,8 @@ def main():
     dp = updater.dispatcher
     
     # Command handlers
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("game", start_registration))
+    dp.add_handler(CommandHandler("start", start_command))
+    dp.add_handler(CommandHandler("game", game_command))
     dp.add_handler(CommandHandler("begin_game", start_game))
     dp.add_handler(CallbackQueryHandler(handle_callback))
 
