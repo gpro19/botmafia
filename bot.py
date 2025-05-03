@@ -97,6 +97,7 @@ def gabung(update: Update, context: CallbackContext):
     )
 
 def mulai_permainan(update: Update, context: CallbackContext):
+def mulai_permainan(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
     game = get_game(chat_id)
 
@@ -113,8 +114,15 @@ def mulai_permainan(update: Update, context: CallbackContext):
     game = get_game(chat_id)
     game['sedang_berlangsung'] = True
 
-    # Tentukan Spy (1 untuk 3-5 pemain, 2 untuk 6-8)
+    # Tentukan jumlah spy (1 untuk 3-5 pemain, 2 untuk 6-8 pemain)
     jumlah_spy = 1 if len(game['pemain']) <= 5 else 2
+
+    # Pastikan jumlah spy tidak lebih besar dari jumlah pemain
+    if jumlah_spy > len(game['pemain']):
+        update.message.reply_text("❌ Jumlah pemain tidak cukup untuk memilih spy!")
+        return
+
+    # Pilih spy secara acak
     game['spy'] = random.sample(game['pemain'], jumlah_spy)
 
     # Pilih kata rahasia
@@ -158,6 +166,7 @@ def mulai_permainan(update: Update, context: CallbackContext):
     game['fase'] = 'deskripsi'
     # Timer fase deskripsi
     context.job_queue.run_once(lambda ctx: akhir_deskripsi(ctx, chat_id), 35)
+
 
 def handle_deskripsi(update: Update, context: CallbackContext):
     if update.message.chat.type != 'private':
