@@ -97,7 +97,6 @@ def gabung(update: Update, context: CallbackContext):
     )
 
 def mulai_permainan(update: Update, context: CallbackContext):
-def mulai_permainan(update: Update, context: CallbackContext):
     chat_id = update.message.chat_id
     game = get_game(chat_id)
 
