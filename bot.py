@@ -124,6 +124,10 @@ def mulai_permainan(update: Update, context: CallbackContext):
     reset_game(chat_id)
     game = get_game(chat_id)  # Ambil referensi terbaru
     game['sedang_berlangsung'] = True
+    
+    # Memastikan jumlah spy tidak lebih dari jumlah pemain
+    if jumlah_spy > jumlah_pemain:
+        jumlah_spy = jumlah_pemain
 
     # Pilih spy secara acak
     game['spy'] = random.sample(game['pemain'], jumlah_spy)
