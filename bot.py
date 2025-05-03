@@ -115,10 +115,10 @@ def mulai_permainan(update: Update, context: CallbackContext):
         return
 
     # Tetapkan jumlah spy (1 untuk 3-5 pemain, 2 untuk 6-8 pemain)
-    jumlah_spy = 1 if jumlah_pemain <= 5 else 2
+    #jumlah_spy = 1 if jumlah_pemain <= 5 else 2
     
     # Memastikan jumlah spy tidak lebih dari jumlah pemain
-    jumlah_spy = min(jumlah_spy, jumlah_pemain - 1)  # -1 untuk memastikan ada minimal 1 warga
+    #jumlah_spy = min(jumlah_spy, jumlah_pemain - 1)  # -1 untuk memastikan ada minimal 1 warga
 
     # Reset state permainan (TANPA menghapus pemain)
     reset_game(chat_id)
@@ -126,7 +126,7 @@ def mulai_permainan(update: Update, context: CallbackContext):
     game['sedang_berlangsung'] = True
 
     # Pilih spy secara acak
-    game['spy'] = random.sample(game['pemain'], jumlah_spy)
+    game['spy'] = random.sample(game['pemain'], 1)
 
     # Pilih kata rahasia
     kategori = random.choice(list(KATA.keys()))
