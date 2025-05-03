@@ -126,7 +126,10 @@ def mulai_permainan(update: Update, context: CallbackContext):
     game['sedang_berlangsung'] = True
 
     # Pilih spy secara acak
-    game['spy'] = random.sample(game['pemain'], 1)
+    roles = assign_roles(game['pemain'])
+    
+    game['spy'] = [player for player, role in roles.items() if role == 'spy']
+    game['warga'] = [player for player, role in roles.items() if role == 'citizen']
 
     # Pilih kata rahasia
     kategori = random.choice(list(KATA.keys()))
@@ -418,6 +421,19 @@ def daftar_pemain(update: Update, context: CallbackContext):
         f"👥 Daftar Pemain ({len(game['pemain'])} orang):\n{daftar}"
     )
 
+def assign_roles(players):
+    roles = {}
+    
+    # Memilih indeks spy secara acak
+    spy_index = random.randint(0, len(players) - 1)
+    
+    for i in range(len(players)):
+        if i == spy_index:
+            roles[players[i]['nama']] = 'spy'
+        else:
+            roles[players[i]['nama']] = 'citizen'
+    
+    return roles
 
 # ===== RUN BOT =====
 
