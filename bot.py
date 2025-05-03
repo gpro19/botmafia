@@ -1,18 +1,15 @@
-from flask import Flask, request
+from flask import Flask
 import random
-import time
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Updater, CommandHandler, CallbackQueryHandler, CallbackContext,
     MessageHandler, Filters
 )
-
 import threading
 
 # Inisialisasi Flask
 app = Flask(__name__)
 TOKEN = "6864590652:AAHhkS03TwV-IvUET4iDnZf0Qh5YJLRMW-k"  # Ganti dengan token bot Anda
-
 
 # ===== KONFIGURASI =====
 KATA = {
@@ -184,8 +181,6 @@ def mulai_permainan(update: Update, context: CallbackContext):
         35,
         context=chat_id
     )
-
-
 
 def handle_deskripsi(update: Update, context: CallbackContext):
     if update.message.chat.type != 'private':
@@ -421,7 +416,7 @@ def run_bot():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    # Tambahkan handler (copy dari kode sebelumnya)
+    # Tambahkan handler
     dp.add_handler(CommandHandler("start", mulai))
     dp.add_handler(CommandHandler("gabung", gabung))
     dp.add_handler(CommandHandler("mulai", mulai_permainan))
@@ -440,4 +435,3 @@ if __name__ == '__main__':
 
     # Jalankan Flask
     app.run(host='0.0.0.0', port=8000)
-
