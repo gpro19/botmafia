@@ -404,6 +404,21 @@ def cancel_game(update: Update, context: CallbackContext):
     reset_game(chat_id)
     update.message.reply_text("🔴 Permainan dibatalkan!")
 
+
+def daftar_pemain(update: Update, context: CallbackContext):
+    chat_id = update.message.chat_id
+    game = get_game(chat_id)
+    
+    if not game['pemain']:
+        update.message.reply_text("Belum ada pemain yang bergabung!")
+        return
+    
+    daftar = "\n".join([f"{i+1}. {p['nama']}" for i, p in enumerate(game['pemain'])])
+    update.message.reply_text(
+        f"👥 Daftar Pemain ({len(game['pemain'])} orang):\n{daftar}"
+    )
+
+
 # ===== RUN BOT =====
 
 # Route untuk halaman utama Flask
@@ -421,8 +436,10 @@ def run_bot():
     dp.add_handler(CommandHandler("gabung", gabung))
     dp.add_handler(CommandHandler("mulai", mulai_permainan))
     dp.add_handler(CommandHandler("cancel", cancel_game))
+    dp.add_handler(CommandHandler("players", daftar_pemain))
     dp.add_handler(CallbackQueryHandler(handle_vote))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_deskripsi))
+    # Tambahkan handler di main()
 
     # Mulai polling
     updater.start_polling()
