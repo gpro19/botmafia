@@ -104,22 +104,26 @@ def mulai_permainan(update: Update, context: CallbackContext):
         update.message.reply_text("🔄 Permainan masih berjalan!")
         return
 
-    if len(game['pemain']) < 3:
-        update.message.reply_text("❌ Minimal 3 pemain untuk memulai!")
+    jumlah_pemain = len(game['pemain'])
+    
+    # Validasi ketat jumlah pemain
+    if jumlah_pemain < 3:
+        update.message.reply_text(
+            "❌ Minimal 3 pemain untuk memulai!\n"
+            f"Pemain saat ini: {jumlah_pemain}/3"
+        )
+        return
+    elif jumlah_pemain > 8:
+        update.message.reply_text("❌ Maksimal 8 pemain!")
         return
 
-    # Atur ulang game
+    # Tetapkan jumlah spy (1 untuk 3-5 pemain, 2 untuk 6-8 pemain)
+    jumlah_spy = 1 if jumlah_pemain <= 5 else 2
+    
+    # Reset state permainan (TANPA menghapus pemain)
     reset_game(chat_id)
-    game = get_game(chat_id)
+    game = get_game(chat_id)  # Ambil referensi terbaru
     game['sedang_berlangsung'] = True
-
-    # Tentukan jumlah spy (1 untuk 3-5 pemain, 2 untuk 6-8 pemain)
-    jumlah_spy = 1 if len(game['pemain']) <= 5 else 2
-
-    # Pastikan jumlah spy tidak lebih besar dari jumlah pemain
-    if jumlah_spy > len(game['pemain']):
-        update.message.reply_text("❌ Jumlah pemain tidak cukup untuk memilih spy!")
-        return
 
     # Pilih spy secara acak
     game['spy'] = random.sample(game['pemain'], jumlah_spy)
@@ -132,39 +136,51 @@ def mulai_permainan(update: Update, context: CallbackContext):
         'kategori': kategori
     }
 
-    # Kirim peran ke pemain
+    # Kirim peran SECARA PRIVAT ke setiap pemain
     for pemain in game['pemain']:
-        if pemain in game['spy']:
-            context.bot.send_message(
-                chat_id=pemain['id'],
-                text=f"🔎 *Kamu adalah SPY!*\n"
-                     f"Kategori: {game['kata_rahasia']['kategori']}\n"
-                     f"Kata SPY: **{game['kata_rahasia']['spy']}**\n\n"
-                     "🔹 Deskripsikan seolah-olah kamu bukan Spy!\n"
-                     "🔹 Kamu tidak tahu kata asli warga!",
-                parse_mode='Markdown'
-            )
-        else:
-            context.bot.send_message(
-                chat_id=pemain['id'],
-                text=f"🏡 *Kamu adalah WARGA*\n"
-                     f"Kategori: {game['kata_rahasia']['kategori']}\n"
-                     f"Kata kamu: **{game['kata_rahasia']['warga']}**\n\n"
-                     "🔹 Deskripsikan tanpa menyebut kata langsung!",
-                parse_mode='Markdown'
-            )
+        try:
+            if pemain in game['spy']:
+                context.bot.send_message(
+                    chat_id=pemain['id'],
+                    text=(
+                        f"🔎 *Kamu adalah SPY!*\n"
+                        f"Kategori: {game['kata_rahasia']['kategori']}\n"
+                        f"Kata SPY: **{game['kata_rahasia']['spy']}**\n\n"
+                        "Deskripsikan kata ini seolah-olah kamu adalah warga biasa!\n"
+                        "Kamu TIDAK TAHU kata yang dimiliki warga!"
+                    ),
+                    parse_mode='Markdown'
+                )
+            else:
+                context.bot.send_message(
+                    chat_id=pemain['id'],
+                    text=(
+                        f"🏡 *Kamu adalah WARGA*\n"
+                        f"Kategori: {game['kata_rahasia']['kategori']}\n"
+                        f"Kata kamu: **{game['kata_rahasia']['warga']}**\n\n"
+                        "Deskripsikan kata ini tanpa menyebut kata langsung!"
+                    ),
+                    parse_mode='Markdown'
+                )
+        except Exception as e:
+            print(f"Gagal mengirim pesan ke {pemain['nama']}: {e}")
 
+    # Info ke grup
     update.message.reply_text(
         "🎭 *Peran sudah dibagikan!*\n"
-        "Lihat pesan pribadi dari bot untuk instruksi.\n\n"
-        "⏳ *Fase Deskripsi dimulai!* (35 detik)\n"
-        "Kirim deskripsi kata kalian ke bot secara *PRIVATE*!",
+        f"Spy: {len(game['spy'])} orang | Warga: {len(game['pemain']) - len(game['spy'])} orang\n\n"
+        "⏳ *Fase Deskripsi dimulai!*\n"
+        "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 35 detik).",
         parse_mode='Markdown'
     )
 
     game['fase'] = 'deskripsi'
-    # Timer fase deskripsi
-    context.job_queue.run_once(lambda ctx: akhir_deskripsi(ctx, chat_id), 35)
+    # Timer 35 detik untuk fase deskripsi
+    context.job_queue.run_once(
+        lambda ctx: akhir_deskripsi(ctx, chat_id), 
+        35,
+        context=chat_id
+    )
 
 
 def handle_deskripsi(update: Update, context: CallbackContext):
