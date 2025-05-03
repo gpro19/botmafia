@@ -120,14 +120,13 @@ def mulai_permainan(update: Update, context: CallbackContext):
     # Tetapkan jumlah spy (1 untuk 3-5 pemain, 2 untuk 6-8 pemain)
     jumlah_spy = 1 if jumlah_pemain <= 5 else 2
     
+    # Memastikan jumlah spy tidak lebih dari jumlah pemain
+    jumlah_spy = min(jumlah_spy, jumlah_pemain - 1)  # -1 untuk memastikan ada minimal 1 warga
+
     # Reset state permainan (TANPA menghapus pemain)
     reset_game(chat_id)
     game = get_game(chat_id)  # Ambil referensi terbaru
     game['sedang_berlangsung'] = True
-    
-    # Memastikan jumlah spy tidak lebih dari jumlah pemain
-    if jumlah_spy > jumlah_pemain:
-        jumlah_spy = jumlah_pemain
 
     # Pilih spy secara acak
     game['spy'] = random.sample(game['pemain'], jumlah_spy)
@@ -185,6 +184,7 @@ def mulai_permainan(update: Update, context: CallbackContext):
         35,
         context=chat_id
     )
+
 
 
 def handle_deskripsi(update: Update, context: CallbackContext):
@@ -440,3 +440,4 @@ if __name__ == '__main__':
 
     # Jalankan Flask
     app.run(host='0.0.0.0', port=8000)
+
