@@ -16,7 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-TOKEN = "6864590652:AAHhkS03TwV-IvUET4iDnZf0Qh5YJLRMW-k"  # Replace with your actual token
+TOKEN = "6864590652:AAGSggybrVFaeVxf350uN6ISbXNrFGaceN0"  # Replace token cokwith your actual token
 
 # Game configuration
 KATA = {
