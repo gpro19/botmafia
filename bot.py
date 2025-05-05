@@ -420,7 +420,7 @@ def handle_vote(update: Update, context: CallbackContext):
 
 
 
-def akhir_voting(context: CallbackContext, chat_id):
+async def akhir_voting(context: CallbackContext, chat_id):
     try:
         game = get_game(chat_id)
         
