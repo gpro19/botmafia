@@ -7,6 +7,8 @@ from telegram.ext import (
 )
 import threading
 import logging
+from telegram.error import NetworkError
+import time
 
 # Setup logging
 logging.basicConfig(
@@ -28,6 +30,33 @@ KATA = {
 
 # Game state management
 games = {}
+
+def safe_answer_callback(query, text=None, show_alert=False):
+    """Safely answer callback query with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return query.answer(text=text, show_alert=show_alert)
+        except NetworkError as e:
+            if attempt == max_retries - 1:
+                raise
+            # Exponential backoff with jitter
+            sleep_time = (2 ** attempt) + random.random()
+            time.sleep(sleep_time)
+
+def safe_send_message(context, *args, **kwargs):
+    """Safely send message with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return context.bot.send_message(*args, **kwargs)
+        except NetworkError as e:
+            if attempt == max_retries - 1:
+                raise
+            sleep_time = (2 ** attempt) + random.random()
+            time.sleep(sleep_time)
+
+
 
 def get_game(chat_id):
     if chat_id not in games:
@@ -247,12 +276,17 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
     # Show descriptions to group
     try:
         if game['message_id']:
-            context.bot.edit_message_text(
+            #context.bot.edit_message_text(
+                #chat_id=chat_id,
+                #message_id=game['message_id'],
+                #text="📜 *Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
+                #parse_mode='Markdown'
+            #)
+            game['message_id'] = context.bot.send_message(
                 chat_id=chat_id,
-                message_id=game['message_id'],
                 text="📜 *Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
                 parse_mode='Markdown'
-            )
+            ).message_id
         else:
             game['message_id'] = context.bot.send_message(
                 chat_id=chat_id,
@@ -307,148 +341,185 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
 
 def handle_vote(update: Update, context: CallbackContext):
     query = update.callback_query
-    query.answer()
-    
-    voter_id = query.from_user.id
-    chat_id = query.message.chat.id
-    game = get_game(chat_id)
-
-    if not game['sedang_berlangsung'] or game['fase'] != 'voting':
-        query.edit_message_text("❌ Waktu voting sudah habis!")
-        return
-
-    # Check if voter is eliminated
-    if any(voter_id == p['id'] for p in game['tereliminasi']):
-        query.answer("❌ Kamu sudah tereliminasi!", show_alert=True)
-        return
-
-    # Check if already voted
-    if voter_id in game['suara']:
-        current_choice = game['suara'][voter_id]['nama']
-        query.answer(f"⚠️ Kamu sudah memilih {current_choice}!", show_alert=True)
-        return
-
     try:
-        # Parse callback data
-        _, player_id_str = query.data.split('_')
-        player_id = int(player_id_str)
+        safe_answer_callback(query)  # First acknowledge the callback
         
-        # Find selected player
-        terpilih = next((p for p in game['pemain'] if p['id'] == player_id and p not in game['tereliminasi']), None)
+        voter_id = query.from_user.id
+        chat_id = query.message.chat.id
+        game = get_game(chat_id)
+
+        if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
+            query.edit_message_text("❌ Waktu voting sudah habis!")
+            return
+
+        # Check if voter is eliminated
+        if any(voter_id == p['id'] for p in game.get('tereliminasi', [])):
+            safe_answer_callback(query, "❌ Kamu sudah tereliminasi!", show_alert=True)
+            return
+
+        # Check if already voted
+        if voter_id in game.get('suara', {}):
+            current_choice = game['suara'][voter_id].get('nama', 'unknown')
+            safe_answer_callback(query, f"⚠️ Kamu sudah memilih {current_choice}!", show_alert=True)
+            return
+
+        # Parse callback data safely
+        try:
+            _, player_id_str = query.data.split('_')
+            player_id = int(player_id_str)
+        except (ValueError, AttributeError) as e:
+            logger.error(f"Invalid callback data: {query.data}")
+            safe_answer_callback(query, "❌ Invalid vote data!", show_alert=True)
+            return
+
+        # Find selected player safely
+        terpilih = next((p for p in game.get('pemain', []) 
+                        if p.get('id') == player_id and p not in game.get('tereliminasi', [])), None)
         
         if not terpilih:
-            query.answer("❌ Pemain tidak valid!", show_alert=True)
+            safe_answer_callback(query, "❌ Pemain tidak valid!", show_alert=True)
             return
 
         # Record vote
-        game['suara'][voter_id] = terpilih
+        game.setdefault('suara', {})[voter_id] = terpilih
         
-        # Count votes per player
-        vote_count = {}
-        for p in game['pemain']:
-            if p not in game['tereliminasi']:
-                vote_count[p['id']] = 0
-        
-        for voted_player in game['suara'].values():
-            vote_count[voted_player['id']] += 1
+        # Count votes with proper initialization
+        vote_count = {p['id']: 0 for p in game.get('pemain', []) if p not in game.get('tereliminasi', [])}
+        for v in game.get('suara', {}).values():
+            if v and 'id' in v:
+                vote_count[v['id']] = vote_count.get(v['id'], 0) + 1
 
-        # Rebuild keyboard with vote counts
+        # Rebuild keyboard safely
         keyboard = []
-        for p in game['pemain']:
-            if p not in game['tereliminasi']:
-                count = vote_count[p['id']]
-                is_voter_choice = voter_id in game['suara'] and game['suara'][voter_id]['id'] == p['id']
-                text = f"{p['nama']} {'✅' if is_voter_choice else ''} {count if count > 0 else ''}"
-                # Disable button after voting
-                callback = f"vote_{p['id']}" if voter_id not in game['suara'] else None
-                keyboard.append([InlineKeyboardButton(text.strip(), callback_data=callback)])
+        for p in game.get('pemain', []):
+            if p not in game.get('tereliminasi', []):
+                count = vote_count.get(p.get('id', 0), 0)
+                is_voter_choice = voter_id in game.get('suara', {}) and game['suara'][voter_id].get('id') == p.get('id')
+                text = f"{p.get('nama', 'Unknown')} {'✅' if is_voter_choice else ''} {count if count > 0 else ''}".strip()
+                
+                # Only include callback if not voted yet
+                callback = f"vote_{p['id']}" if voter_id not in game.get('suara', {}) else None
+                keyboard.append([InlineKeyboardButton(text, callback_data=callback)])
 
-        # Update message with new keyboard
+        # Update voting message safely
         try:
             query.edit_message_text(
                 text="🗳️ *Fase Voting!*\nPilih siapa yang menurutmu Spy!\n✓ = pilihanmu | angka = jumlah vote",
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
+            safe_answer_callback(query, f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=True)
         except Exception as e:
-            logger.error(f"Gagal update voting: {e}")
-
-        query.answer(f"✅ Kamu memilih {terpilih['nama']}!", show_alert=True)
+            logger.error(f"Error updating vote message: {e}")
+            safe_answer_callback(query, "❌ Gagal memperbarui pilihan.", show_alert=True)
 
     except Exception as e:
-        logger.error(f"Error handle vote: {e}")
-        query.answer("❌ Error terjadi saat voting!", show_alert=True)
+        logger.error(f"Error in handle_vote: {e}")
+        try:
+            safe_answer_callback(query, "❌ Terjadi kesalahan saat voting!", show_alert=True)
+        except:
+            pass
+
 
 def akhir_voting(context: CallbackContext, chat_id):
-    game = get_game(chat_id)
-    
-    if not game['sedang_berlangsung'] or game['fase'] != 'voting':
-        return
-
-    # Count votes
-    hasil_voting = {}
-    pemain_aktif = [p for p in game['pemain'] if p not in game['tereliminasi']]
-    
-    for p in pemain_aktif:
-        hasil_voting[p['id']] = {'nama': p['nama'], 'suara': 0}
-    
-    for voted_player in game['suara'].values():
-        hasil_voting[voted_player['id']]['suara'] += 1
-
-    # Sort by most votes
-    ranking = sorted(hasil_voting.values(), key=lambda x: x['suara'], reverse=True)
-
-    # Show voting results
-    hasil_text = "📊 *Hasil Voting:*\n"
-    for i, p in enumerate(ranking):
-        hasil_text += f"• {p['nama']}: {p['suara']} suara\n"
-    
     try:
-        if game['message_id']:
-            context.bot.edit_message_text(
+        game = get_game(chat_id)
+        
+        if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
+            return
+
+        # Initialize proper voting structure
+        hasil_voting = {p.get('id'): {'nama': p.get('nama', 'Unknown'), 'suara': 0, 'id': p.get('id')} 
+                       for p in game.get('pemain', []) if p not in game.get('tereliminasi', [])}
+        
+        # Count votes safely
+        for v in game.get('suara', {}).values():
+            if v and 'id' in v and v['id'] in hasil_voting:
+                hasil_voting[v['id']]['suara'] += 1
+
+        # Create sorted ranking safely
+        ranking = sorted(hasil_voting.values(), key=lambda x: x.get('suara', 0), reverse=True)
+
+        # Show voting results with proper error handling
+        hasil_text = "📊 *Hasil Voting:*\n"
+        for p in ranking:
+            hasil_text += f"• {p.get('nama', 'Unknown')}: {p.get('suara', 0)} suara\n"
+        
+        # Send results safely
+        try:
+            if game.get('message_id'):
+                context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=game['message_id'],
+                    text=hasil_text,
+                    parse_mode='Markdown'
+                )
+            else:
+                game['message_id'] = safe_send_message(
+                    context,
+                    chat_id=chat_id,
+                    text=hasil_text,
+                    parse_mode='Markdown'
+                ).message_id
+        except Exception as e:
+            logger.error(f"Error sending voting results: {e}")
+
+        # Determine eliminated player safely
+        tereliminasi = None
+        try:
+            if ranking and len(ranking) > 0:
+                if len(ranking) > 1 and ranking[0].get('suara', 0) == ranking[1].get('suara', 0):
+                    # Handle tie
+                    nama_seri = ", ".join([p.get('nama', 'Unknown') for p in ranking 
+                                         if p.get('suara', 0) == ranking[0].get('suara', 0)])
+                    safe_send_message(
+                        context,
+                        chat_id=chat_id,
+                        text=f"🤝 *Hasil seri!* ({nama_seri})\nTidak ada yang tereliminasi.",
+                        parse_mode='Markdown'
+                    )
+                else:
+                    # Single elimination
+                    tereliminasi = next((p for p in game.get('pemain', []) 
+                                       if p.get('id') == ranking[0].get('id') and 
+                                       p not in game.get('tereliminasi', [])), None)
+                    if tereliminasi:
+                        game.setdefault('tereliminasi', []).append(tereliminasi)
+                        is_spy = tereliminasi in game.get('spy', [])
+                        if is_spy:
+                            game['spy'].remove(tereliminasi)
+                        
+                        safe_send_message(
+                            context,
+                            chat_id=chat_id,
+                            text=f"☠️ *{tereliminasi.get('nama', 'Pemain')} tereliminasi!* "
+                                f"{'(Dia adalah Spy!)' if is_spy else ''}",
+                            parse_mode='Markdown'
+                        )
+        except Exception as e:
+            logger.error(f"Error determining elimination: {e}")
+            safe_send_message(
+                context,
                 chat_id=chat_id,
-                message_id=game['message_id'],
-                text=hasil_text,
+                text="❌ Terjadi kesalahan saat menentukan eliminasi.",
                 parse_mode='Markdown'
             )
-        else:
-            game['message_id'] = context.bot.send_message(
-                chat_id=chat_id,
-                text=hasil_text,
-                parse_mode='Markdown'
-            ).message_id
+
+        # Check win conditions
+        cek_pemenang(context, chat_id)
+
     except Exception as e:
-        logger.error(f"Gagal edit/send hasil voting: {e}")
+        logger.error(f"Error in akhir_voting: {e}")
+        try:
+            safe_send_message(
+                context,
+                chat_id=chat_id,
+                text="⚠️ Terjadi kesalahan dalam pemrosesan voting.",
+                parse_mode='Markdown'
+            )
+        except:
+            pass
 
-    # Determine eliminated player
-    if not ranking or len(ranking) == 0:  # No votes
-        tereliminasi = None
-    elif len(ranking) > 1 and ranking[0]['suara'] == ranking[1]['suara']:  # Tie
-        nama_seri = ", ".join([p['nama'] for p in ranking if p['suara'] == ranking[0]['suara']])
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=f"🤝 *Hasil seri!* ({nama_seri})\nTidak ada yang tereliminasi.",
-            parse_mode='Markdown'
-        )
-        tereliminasi = None
-    else:  # Someone eliminated
-        tereliminasi = next(p for p in pemain_aktif if p['id'] == ranking[0]['id'])
-        game['tereliminasi'].append(tereliminasi)
-
-        # Check if eliminated player was a spy
-        is_spy = tereliminasi in game['spy']
-        if is_spy:
-            game['spy'].remove(tereliminasi)
-
-        context.bot.send_message(
-            chat_id=chat_id,
-            text=f"☠️ *{tereliminasi['nama']} tereliminasi!* "
-                 f"{'(Dia adalah Spy!)' if is_spy else ''}",
-            parse_mode='Markdown'
-        )
-
-    # Check win conditions
-    cek_pemenang(context, chat_id)
 
 def cek_pemenang(context: CallbackContext, chat_id):
     game = get_game(chat_id)
