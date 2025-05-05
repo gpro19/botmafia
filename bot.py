@@ -299,11 +299,12 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
         cek_pemenang(context, chat_id)
         return
     
-    btn_text = f"{p['nama']} (0)"
+    
     
     # Create vertical voting buttons
     keyboard = []
     for p in pemain_aktif:
+        btn_text = f"{p['nama']} (0)"
         keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"vote_{p['id']}")])
 
     try:
