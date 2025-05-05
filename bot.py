@@ -109,9 +109,9 @@ def mulai_permainan(update: Update, context: CallbackContext):
         update.message.reply_text("❌ Hanya bisa dilakukan di grup!")
         return
         
-    if not is_admin(update, context):
-        update.message.reply_text("❌ Hanya admin yang bisa memulai permainan!")
-        return
+    #if not is_admin(update, context):
+        #update.message.reply_text("❌ Hanya admin yang bisa memulai permainan!")
+        #return
 
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
