@@ -328,7 +328,7 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
 def handle_vote(update: Update, context: CallbackContext):
     query = update.callback_query
     try:
-        query.answer()  # Acknowledge the callback first (no await)
+        query.answer()  # Acknowledge the callback first
 
         voter_id = query.from_user.id
         chat_id = query.message.chat.id
@@ -374,11 +374,7 @@ def handle_vote(update: Update, context: CallbackContext):
         game.setdefault('suara', {})[voter_id] = terpilih
         
         # Count votes
-        vote_count = dict()
-        for p in game.get('pemain', []):
-            if p not in game.get('tereliminasi', []):
-                vote_count[p['id']] = 0
-                
+        vote_count = {p['id']: 0 for p in game.get('pemain', []) if p not in game.get('tereliminasi', [])}
         for v in game.get('suara', {}).values():
             if v and 'id' in v:
                 vote_count[v['id']] += 1
@@ -388,25 +384,20 @@ def handle_vote(update: Update, context: CallbackContext):
         for p in game.get('pemain', []):
             if p not in game.get('tereliminasi', []):
                 count = vote_count.get(p.get('id', 0), 0)
-                is_voter_choice = voter_id in game.get('suara', {}) and game['suara'][voter_id].get('id') == p.get('id')
-                btn_text = f"{p.get('nama', 'Unknown')} {'✅' if is_voter_choice else ''} {'🗳️' + str(count) if count > 0 else ''}".strip()
+                btn_text = f"{p.get('nama', 'Unknown')} ({count}🗳️)"
                 
-                # For players who already voted, buttons are disabled
-                if voter_id in game.get('suara', {}):
-                    callback = "voted_already"
-                else:
-                    callback = f"vote_{p['id']}"
-                
+                # Ensure callback_data is always valid
+                callback = f"vote_{p['id']}"
                 keyboard.append([InlineKeyboardButton(btn_text, callback_data=callback)])
 
-        # Edit the message with new vote counts
+        # Edit only the reply markup (inline keyboard)
         try:
             query.edit_message_reply_markup(
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
             query.answer(text=f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=True)
         except Exception as e:
-            logger.error(f"Error updating vote message: {e}")
+            logger.error(f"Error updating reply markup: {e}")
             query.answer(text="❌ Gagal memperbarui pilihan.", show_alert=True)
 
     except Exception as e:
@@ -415,6 +406,7 @@ def handle_vote(update: Update, context: CallbackContext):
             query.answer(text="❌ Terjadi kesalahan saat voting!", show_alert=True)
         except:
             pass
+
 
 
 #  ini buat voting
