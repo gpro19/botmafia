@@ -594,8 +594,6 @@ def run_bot():
     dp.add_handler(CommandHandler("players", daftar_pemain))
     
     # Message handlers
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command & Filters.private, start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command & Filters.private, handle_deskripsi))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command & Filters.private, handle_deskripsi))
     
     # Callback handlers
