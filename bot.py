@@ -81,6 +81,10 @@ def reset_game(chat_id):
 
 # Command handlers
 def start(update: Update, context: CallbackContext):
+    if context.args and context.args[0].startswith('join_'):
+        join_request(update, context)
+        return
+        
     update.message.reply_text(
         "🎮 *GAME TEBAK SPY*\n"
         "⚙️ **Cara Main:**\n"
@@ -107,23 +111,232 @@ def gabung(update: Update, context: CallbackContext):
         update.message.reply_text("⚠️ Permainan sudah berjalan! Tunggu game selanjutnya.")
         return
 
-    pemain = update.effective_user
-    nama = pemain.first_name
-    id_pemain = pemain.id
+    # Reset game state if not active
+    if not game.get("join_started", False):
+        game.update({
+            'pemain': [],
+            'pending_messages': [],
+            'join_started': True
+        })
 
-    if any(p['id'] == id_pemain for p in game['pemain']):
+    # Generate join token
+    join_token = f"join_{int(time.time())}_{chat_id}"
+    
+    # Create join button
+    keyboard = [[InlineKeyboardButton(
+        "🎮 Gabung Permainan", 
+        url=f"https://t.me/{context.bot.username}?start={join_token}"
+    )]]
+    
+    # Send join message
+    if not game.get('join_message_id'):
+        msg = update.message.reply_text(
+            "🎮 *PERMAINAN BARU DIMULAI!*\n"
+            "⏱️ Waktu bergabung: 50 detik\n"
+            "👥 Pemain: 0/8\n\n"
+            "Klik tombol di bawah untuk bergabung:",
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
+        game['join_message_id'] = msg.message_id
+        game['pending_messages'].append(msg.message_id)
+    else:
+        try:
+            context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=game['join_message_id'],
+                text="🎮 *PERMAINAN BARU DIMULAI!*\n"
+                     "⏱️ Waktu bergabung: 50 detik\n"
+                     f"👥 Pemain: {len(game['pemain'])}/8\n\n"
+                     "Klik tombol di bawah untuk bergabung:",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='Markdown'
+            )
+        except Exception as e:
+            logger.error(f"Failed to update join message: {e}")
+
+    # Start timers
+    context.job_queue.run_once(
+        lambda ctx: join_time_up(ctx, chat_id),
+        50,
+        context={'chat_id': chat_id},
+        name=f"join_timer_{chat_id}"
+    )
+
+    context.job_queue.run_once(
+        lambda ctx: join_warning(ctx, chat_id),
+        35,
+        context={'chat_id': chat_id},
+        name=f"join_warning_{chat_id}"
+    )
+
+def join_warning(context: CallbackContext):
+    chat_id = context.job.context['chat_id']
+    game = get_game(chat_id)
+    
+    if not game.get('join_started', False):
+        return
+
+    try:
+        warning_msg = context.bot.send_message(
+            chat_id=chat_id,
+            text="⏰ *15 DETIK LAGI UNTUK BERGABUNG!* ⏰",
+            parse_mode='Markdown'
+        )
+        game['pending_messages'].append(warning_msg.message_id)
+    except Exception as e:
+        logger.error(f"Failed to send join warning: {e}")
+
+def join_time_up(context: CallbackContext):
+    chat_id = context.job.context['chat_id']
+    game = get_game(chat_id)
+    
+    if not game.get('join_started', False):
+        return
+
+    # Delete all join messages
+    for msg_id in game.get('pending_messages', []):
+        try:
+            context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception as e:
+            logger.error(f"Failed to delete message {msg_id}: {e}")
+
+    game['pending_messages'] = []
+    game['join_message_id'] = None
+    game['join_started'] = False
+
+    # Check player count and start game
+    if len(game.get('pemain', [])) >= 3:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=f"✅ Pendaftaran ditutup dengan {len(game['pemain'])} pemain!\n"
+                 "⏳ Memulai permainan...",
+            parse_mode='Markdown'
+        )
+        # Start game after short delay
+        context.job_queue.run_once(
+            lambda ctx: auto_start_game(ctx, chat_id),
+            2,
+            context={'chat_id': chat_id},
+            name=f"auto_start_{chat_id}"
+        )
+    else:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ Pendaftaran ditutup! Minimal 3 pemain diperlukan.",
+            parse_mode='Markdown'
+        )
+        reset_game(chat_id)
+
+def auto_start_game(context: CallbackContext):
+    chat_id = context.job.context['chat_id']
+    game = get_game(chat_id)
+    
+    if len(game.get('pemain', [])) < 3:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ Gagal memulai - pemain tidak cukup!",
+            parse_mode='Markdown'
+        )
+        reset_game(chat_id)
+        return
+
+    # Start game by calling the main game start function
+    mulai_permainan(Update(
+        update_id=0,
+        message=type('', (), {
+            'chat_id': chat_id,
+            'reply_text': lambda text, **kwargs: context.bot.send_message(chat_id, text),
+            'chat': type('', (), {'type': 'group', 'id': chat_id})()
+        })()
+    ), context)
+
+def join_request(update: Update, context: CallbackContext):
+    if update.effective_chat.type != 'private':
+        return
+
+    try:
+        # Parse token
+        token = context.args[0]
+        parts = token.split('_')
+        if len(parts) != 3 or not parts[1].isdigit() or not parts[2].isdigit():
+            raise ValueError
+        
+        chat_id = int(parts[2])
+        token_time = int(parts[1])
+        
+        # Check token validity (10 minutes window)
+        if abs(time.time() - token_time) > 600:
+            update.message.reply_text("⌛ Link bergabung sudah kadaluarsa!")
+            return
+
+    except Exception as e:
+        logger.error(f"Invalid join token: {e}")
+        update.message.reply_text("❌ Link tidak valid!")
+        return
+
+    game = get_game(chat_id)
+    
+    # Validate game state
+    if not game.get('join_started', False) or game['sedang_berlangsung']:
+        update.message.reply_text("⌛ Waktu bergabung sudah habis atau game sudah mulai!")
+        return
+
+    user = update.effective_user
+    user_id = user.id
+    username = user.first_name
+
+    # Check if already joined
+    if any(p['id'] == user_id for p in game['pemain']):
         update.message.reply_text("😅 Kamu sudah terdaftar!")
         return
 
+    # Check if full
     if len(game['pemain']) >= 8:
-        update.message.reply_text("🫣 Pemain sudah penuh (maks 8 orang)!")
+        update.message.reply_text("🫣 Pemain sudah penuh (8/8)!")
         return
 
-    game['pemain'].append({'id': id_pemain, 'nama': nama})
+    # Add player
+    game['pemain'].append({'id': user_id, 'nama': username})
+
+    # Confirm to player
     update.message.reply_text(
-        f"✅ {nama} bergabung! ({len(game['pemain'])}/8)\n"
-        f"Admin kirim `/mulai` jika pemain cukup."
+        f"✅ Kamu berhasil bergabung!\n"
+        f"Sekarang ada {len(game['pemain'])}/8 pemain.\n"
+        "Kembali ke grup untuk menunggu game dimulai."
     )
+
+    # Notify group
+    try:
+        notify_msg = context.bot.send_message(
+            chat_id=chat_id,
+            text=f"🎉 {username} bergabung! ({len(game['pemain'])}/8)",
+            parse_mode='Markdown'
+        )
+        game['pending_messages'].append(notify_msg.message_id)
+    except Exception as e:
+        logger.error(f"Failed to send join notification: {e}")
+
+    # Update join message
+    try:
+        context.bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=game['join_message_id'],
+            text="🎮 *PERMAINAN BARU DIMULAI!*\n"
+                 "⏱️ Waktu bergabung: 50 detik\n"
+                 f"👥 Pemain: {len(game['pemain'])}/8\n\n"
+                 "Klik tombol di bawah untuk bergabung:",
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(
+                    "🎮 Gabung Permainan",
+                    url=f"https://t.me/{context.bot.username}?start=join_{int(time.time())}_{chat_id}"
+                )
+            ]]),
+            parse_mode='Markdown'
+        )
+    except Exception as e:
+        logger.error(f"Failed to update join message: {e}")
+
 
 def mulai_permainan(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
