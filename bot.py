@@ -66,11 +66,33 @@ def get_game(chat_id: int) -> Dict[str, Any]:
 
 def reset_game(chat_id: int):
     """Reset game state and cancel all jobs"""
+    # Get the current game state
     game = get_game(chat_id)
+
+    # Cancel all scheduled jobs related to this game
     for job in game.get('jobs', []):
         job.schedule_removal()
-    if chat_id in games:
-        del games[chat_id]
+
+    # Clear the game state
+    game.clear()  # Clear all keys in the game dictionary
+
+    # Reinitialize the game state
+    games[chat_id] = {
+        'pemain': [],
+        'spy': [],
+        'warga': [],
+        'kata_rahasia': None,
+        'sedang_berlangsung': False,
+        'fase': None,
+        'deskripsi_pemain': {},
+        'suara': {},
+        'tereliminasi': [],
+        'skor': {},
+        'join_started': False,
+        'pending_messages': [],
+        'join_message_id': None,
+        'jobs': []
+    }
         
         
 def safe_send_message(context, *args, **kwargs):
@@ -788,14 +810,14 @@ def cek_pemenang(context: CallbackContext, chat_id):
         # Special case if all eliminated
         teks = "🤷 *Permainan berakhir tanpa pemenang!*\nSemua pemain tereliminasi."
     elif jumlah_spy >= (jumlah_pemain - jumlah_spy):  # Spies win
-        teks = f"* Permainan Berakhir!*\n\nTim pemenang: *Spy*\n\n"
+        teks = f"* Permainan Berakhir!*\nTim pemenang: *Spy*\n\n"
         teks += "*Pemenang:*\n"
         
         # First show winning spies
         for pemain in game['pemain']:
             if pemain in game['spy'] and pemain not in game['tereliminasi']:
                 game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 20
-                teks += f"    - {pemain['nama']} : 🕵️ Spy\n"
+                teks += f"- {pemain['nama']} : 🕵️ Spy\n"
         
         teks += "\n*Pemain lain:*\n"
         # Then show other players
@@ -803,21 +825,21 @@ def cek_pemenang(context: CallbackContext, chat_id):
             if pemain not in game['spy'] or pemain in game['tereliminasi']:
                 game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 5
                 role = "🕵️ Spy" if pemain in game['spy'] else "👨🏼 Warga"
-                teks += f"    - {pemain['nama']} : {role}\n"
+                teks += f"- {pemain['nama']} : {role}\n"
                 
-        teks += f"\nSpy yang tersisa: {jumlah_spy}\n"
+        
         teks += f"Kata Warga: {game['kata_rahasia']['warga']}\n"
         teks += f"Kata Spy: {game['kata_rahasia']['spy']}\n"
                 
     elif jumlah_spy == 0:  # Villagers win
-        teks = f"* Permainan Berakhir!*\n\nTim pemenang: *Warga*\n\n"
+        teks = f"* Permainan Berakhir!*\nTim pemenang: *Warga*\n\n"
         teks += "*Pemenang:*\n"
         
         # First show winning villagers
         for pemain in game['pemain']:
             if pemain not in game['spy'] and pemain not in game['tereliminasi']:
                 game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 20
-                teks += f"    - {pemain['nama']} : 👨🏼 Warga\n"
+                teks += f"- {pemain['nama']} : 👨🏼 Warga\n"
         
         teks += "\n*Pemain lain:*\n"
         # Then show other players
@@ -825,7 +847,7 @@ def cek_pemenang(context: CallbackContext, chat_id):
             if pemain in game['spy'] or pemain in game['tereliminasi']:
                 game['skor'][pemain['id']] = game['skor'].get(pemain['id'], 0) + 5
                 role = "🕵️ Spy" if pemain in game['spy'] else "👨🏼 Warga"
-                teks += f"    - {pemain['nama']} : {role}\n"
+                teks += f"- {pemain['nama']} : {role}\n"
                 
         teks += f"\nKata Warga: {game['kata_rahasia']['warga']}\n"
         teks += f"Kata Spy: {game['kata_rahasia']['spy']}\n"
