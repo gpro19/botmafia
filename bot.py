@@ -139,35 +139,65 @@ def join_warning(context: CallbackContext):
 
 
 def auto_start_game(context: CallbackContext):
-    """Automatically start game after timer ends"""
+    """Automatically start game after join timer ends"""
     try:
+        # Extract chat_id from job context
         chat_id = context.job.context['chat_id']
         game = get_game(chat_id)
         
         if len(game['pemain']) < 3:
             context.bot.send_message(
                 chat_id=chat_id,
-                text="❌ Gagal memulai - pemain tidak cukup!",
+                text="❌ Gagal memulai - minimal 3 pemain diperlukan!",
                 parse_mode='Markdown'
             )
             reset_game(chat_id)
             return
 
-        # Create dummy update object to call mulai_permainan
+        # Create simulated Update object (fake_update)
+        class MockChat:
+            def __init__(self, chat_id):
+                self.id = chat_id
+                self.type = 'group'
+
+        class MockMessage:
+            def __init__(self, chat_id):
+                self.chat = MockChat(chat_id)
+                self.chat_id = chat_id
+                
+            def reply_text(self, text, **kwargs):
+                return context.bot.send_message(
+                    chat_id=self.chat_id,
+                    text=text,
+                    **kwargs
+                )
+
         fake_update = Update(
             update_id=0,
-            message=type('', (), {
-                'chat_id': chat_id,
-                'reply_text': lambda text, **kwargs: context.bot.send_message(chat_id, text, **kwargs),
-                'chat': type('', (), {'type': 'group', 'id': chat_id})()
-            })()
+            message=MockMessage(chat_id)
         )
-        
+
+        # Call main game function with simulated update
         mulai_permainan(fake_update, context)
-        
+
     except Exception as e:
-        logger.error(f"Error in auto_start_game: {str(e)}")
-        raise
+        logger.error(f"Error in auto_start_game: {e}")
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="⚠️ Gagal memulai permainan secara otomatis. Silakan coba /mulai manual."
+        )
+        reset_game(chat_id)
+
+
+# Perbaikan pada bagian pemanggilan di fungsi `gabung`:
+start_job = context.job_queue.run_once(
+    callback=auto_start_game,  # Langsung referensikan fungsi tanpa lambda
+    when=2,  # Delay 2 detik
+    context={'chat_id': chat_id},
+    name=f"game_start_{chat_id}"
+)
+game['jobs'].append(start_job)
+
 
 
 def start(update: Update, context: CallbackContext):
