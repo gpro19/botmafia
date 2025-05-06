@@ -20,8 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-TOKEN = "6864590652:AAGSggybrVFaeVxf350uN6ISbXNrFGaceN0"  # Ganti dengan token bot Anda
-
+TOKEN = "7590020235:AAGRKmt_neQTk1bvM78ugivuH0qvivlh_3s"
 # Game configuration
 KATA = {
     "Restoran": ["Menu", "Pelayan", "Meja", "Piring", "Koki"],
@@ -189,16 +188,6 @@ def auto_start_game(context: CallbackContext):
         reset_game(chat_id)
 
 
-# Perbaikan pada bagian pemanggilan di fungsi `gabung`:
-start_job = context.job_queue.run_once(
-    callback=auto_start_game,  # Langsung referensikan fungsi tanpa lambda
-    when=2,  # Delay 2 detik
-    context={'chat_id': chat_id},
-    name=f"game_start_{chat_id}"
-)
-game['jobs'].append(start_job)
-
-
 
 def start(update: Update, context: CallbackContext):
     if context.args and context.args[0].startswith('join_'):
@@ -295,6 +284,15 @@ def gabung(update: Update, context: CallbackContext):
         name=f"join_warning_{chat_id}"
     )
     game['jobs'].append(warning_job)
+
+     # Schedule auto start game
+    start_job = context.job_queue.run_once(
+        auto_start_game,
+        52,  # 2 detik setelah timer gabung selesai
+        context={'chat_id': chat_id},
+        name=f"game_start_{chat_id}"
+    )
+    game['jobs'].append(start_job)
 
 def join_request(update: Update, context: CallbackContext):
     if update.effective_chat.type != 'private':
