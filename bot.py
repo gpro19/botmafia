@@ -72,6 +72,72 @@ def reset_game(chat_id: int):
         job.schedule_removal()
     if chat_id in games:
         del games[chat_id]
+        
+        
+def join_time_up(context: CallbackContext):
+    """Handler ketika waktu gabung habis"""
+    chat_id = context.job.context['chat_id']
+    game = get_game(chat_id)
+    
+    if not game['join_started']:
+        return
+
+    # Cleanup messages
+    for msg_id in game['pending_messages']:
+        try:
+            context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception as e:
+            logger.error(f"Gagal hapus pesan {msg_id}: {e}")
+
+    game['pending_messages'] = []
+    game['join_message_id'] = None
+    game['join_started'] = False
+
+    # Start game if enough players
+    if len(game['pemain']) >= 3:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text=f"✅ Pendaftaran ditutup dengan {len(game['pemain'])} pemain!\n"
+                 "⏳ Memulai permainan...",
+            parse_mode='Markdown'
+        )
+        
+        # Start game with short delay
+        start_job = context.job_queue.run_once(
+            lambda ctx: auto_start_game(ctx),
+            2,
+            context={'chat_id': chat_id},
+            name=f"game_start_{chat_id}"
+        )
+        game['jobs'].append(start_job)
+    else:
+        context.bot.send_message(
+            chat_id=chat_id,
+            text="❌ Pendaftaran ditutup! Minimal 3 pemain diperlukan.",
+            parse_mode='Markdown'
+        )
+        reset_game(chat_id)
+
+
+def join_warning(context: CallbackContext):
+    """Peringatan waktu gabung hampir habis"""
+    chat_id = context.job.context['chat_id']
+    game = get_game(chat_id)
+    
+    if not game['join_started']:
+        return
+
+    try:
+        warning_msg = context.bot.send_message(
+            chat_id=chat_id,
+            text="⏰ *15 DETIK LAGI UNTUK BERGABUNG!* ⏰",
+            parse_mode='Markdown'
+        )
+        game['pending_messages'].append(warning_msg.message_id)
+    except Exception as e:
+        logger.error(f"Gagal kirim peringatan: {e}")
+
+
 
 def start(update: Update, context: CallbackContext):
     if context.args and context.args[0].startswith('join_'):
