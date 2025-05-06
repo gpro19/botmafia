@@ -73,6 +73,19 @@ def reset_game(chat_id: int):
         del games[chat_id]
         
         
+def safe_send_message(context, *args, **kwargs):
+    """Safely send message with retry logic"""
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            return context.bot.send_message(*args, **kwargs)
+        except NetworkError as e:
+            if attempt == max_retries - 1:
+                raise
+            sleep_time = (2 ** attempt) + random.random()
+            time.sleep(sleep_time)
+
+        
 def join_time_up(context: CallbackContext):
     """Handler ketika waktu gabung habis"""
     chat_id = context.job.context['chat_id']
@@ -129,7 +142,7 @@ def join_warning(context: CallbackContext):
     try:
         warning_msg = context.bot.send_message(
             chat_id=chat_id,
-            text="⏰ *15 DETIK LAGI UNTUK BERGABUNG!* ⏰",
+            text="*15* detik lagi untuk bergabung",
             parse_mode='Markdown'
         )
         game['pending_messages'].append(warning_msg.message_id)
@@ -388,7 +401,7 @@ def mulai_permainan(update: Update, context: CallbackContext):
     game = get_game(chat_id)
 
     if game['sedang_berlangsung']:
-        update.message.reply_text("🔄 Permainan masih berjalan!")
+        #update.message.reply_text("🔄 Permainan masih berjalan!")
         return
 
     jumlah_pemain = len(game['pemain'])
@@ -586,7 +599,7 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
 def handle_vote(update: Update, context: CallbackContext):
     query = update.callback_query
     try:
-        query.answer()  # Acknowledge the callback first
+        #query.answer()  # Acknowledge the callback first
 
         voter_id = query.from_user.id
         chat_id = query.message.chat.id
@@ -594,7 +607,7 @@ def handle_vote(update: Update, context: CallbackContext):
 
         # Validate game state
         if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
-            query.answer(text="❌ Waktu voting sudah habis!", show_alert=false, cache_time=5)
+            query.answer(text="❌ Waktu voting sudah habis!", show_alert=false)
             return
 
         # Check if voter is eliminated
@@ -653,7 +666,7 @@ def handle_vote(update: Update, context: CallbackContext):
             query.edit_message_reply_markup(
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
-            query.answer(text=f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=false, cache_time=3)
+            query.answer(text=f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=false)
         except Exception as e:
             logger.error(f"Error updating reply markup: {e}")
             query.answer(text="❌ Gagal memperbarui pilihan.", show_alert=false)
