@@ -64,36 +64,52 @@ def get_game(chat_id: int) -> Dict[str, Any]:
         }
     return games[chat_id]
 
-def reset_game(chat_id: int):
-    """Reset game state and cancel all jobs"""
-    # Get the current game state
+def cleanup_jobs(context: CallbackContext, chat_id: int):
+    """Membersihkan semua job untuk chat tertentu"""
     game = get_game(chat_id)
-
-    # Cancel all scheduled jobs related to this game
-    for job in game.get('jobs', []):
-        job.schedule_removal()
-
-    # Clear the game state
-    game.clear()  # Clear all keys in the game dictionary
-
-    # Reinitialize the game state
-    games[chat_id] = {
-        'pemain': [],
-        'spy': [],
-        'warga': [],
-        'kata_rahasia': None,
-        'sedang_berlangsung': False,
-        'fase': None,
-        'deskripsi_pemain': {},
-        'suara': {},
-        'tereliminasi': [],
-        'skor': {},
-        'join_started': False,
-        'pending_messages': [],
-        'join_message_id': None,
-        'jobs': []
-    }
+    
+    if 'jobs' not in game:
+        return
         
+    for job_info in game['jobs']:
+        try:
+            for job in context.job_queue.get_jobs_by_name(job_info['id']):
+                job.schedule_removal()
+                logger.info(f"Job {job_info['id']} dihapus")
+        except Exception as e:
+            logger.error(f"Gagal hapus job {job_info['id']}: {e}")
+    
+    game['jobs'] = []
+
+
+def reset_game(chat_id: int, context: CallbackContext = None):
+    """Reset game state and cancel all jobs safely"""
+    game = get_game(chat_id)
+    
+    try:
+        # Cancel all active jobs
+        if context and 'jobs' in game:
+            for job_info in game['jobs']:
+                try:
+                    for job in context.job_queue.get_jobs_by_name(job_info['id']):
+                        job.schedule_removal()
+                        logger.info(f"Removed job: {job.name}")
+                except Exception as e:
+                    logger.error(f"Failed to remove job {job_info['id']}: {e}")
+
+        # Clear all pending messages
+        for msg_id in game.get('pending_messages', []):
+            try:
+                context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except Exception as e:
+                logger.error(f"Failed to delete message {msg_id}: {e}")
+                
+    except Exception as e:
+        logger.error(f"Error in reset_game: {e}")
+    finally:
+        if chat_id in games:
+            del games[chat_id]
+
         
 def safe_send_message(context, *args, **kwargs):
     """Safely send message with retry logic"""
