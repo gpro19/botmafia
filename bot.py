@@ -138,6 +138,37 @@ def join_warning(context: CallbackContext):
         logger.error(f"Gagal kirim peringatan: {e}")
 
 
+def auto_start_game(context: CallbackContext):
+    """Automatically start game after timer ends"""
+    try:
+        chat_id = context.job.context['chat_id']
+        game = get_game(chat_id)
+        
+        if len(game['pemain']) < 3:
+            context.bot.send_message(
+                chat_id=chat_id,
+                text="❌ Gagal memulai - pemain tidak cukup!",
+                parse_mode='Markdown'
+            )
+            reset_game(chat_id)
+            return
+
+        # Create dummy update object to call mulai_permainan
+        fake_update = Update(
+            update_id=0,
+            message=type('', (), {
+                'chat_id': chat_id,
+                'reply_text': lambda text, **kwargs: context.bot.send_message(chat_id, text, **kwargs),
+                'chat': type('', (), {'type': 'group', 'id': chat_id})()
+            })()
+        )
+        
+        mulai_permainan(fake_update, context)
+        
+    except Exception as e:
+        logger.error(f"Error in auto_start_game: {str(e)}")
+        raise
+
 
 def start(update: Update, context: CallbackContext):
     if context.args and context.args[0].startswith('join_'):
