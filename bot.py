@@ -599,26 +599,24 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
 def handle_vote(update: Update, context: CallbackContext):
     query = update.callback_query
     try:
-        #query.answer()  # Acknowledge the callback first
-
         voter_id = query.from_user.id
         chat_id = query.message.chat.id
         game = get_game(chat_id)
 
         # Validate game state
         if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
-            query.answer(text="❌ Waktu voting sudah habis!", show_alert=false)
+            query.answer(text="❌ Waktu voting sudah habis!", show_alert=False)
             return
 
         # Check if voter is eliminated
         if any(voter_id == p['id'] for p in game.get('tereliminasi', [])):
-            query.answer(text="❌ Kamu sudah tereliminasi!", show_alert=false, cache_time=5)
+            query.answer(text="❌ Kamu sudah tereliminasi!", show_alert=False, cache_time=5)
             return
 
         # Check if already voted
         if voter_id in game.get('suara', {}):
             current_choice = game['suara'][voter_id].get('nama', 'unknown')
-            query.answer(text=f"⚠️ Kamu sudah memilih {current_choice}!", show_alert=false, cache_time=4)
+            query.answer(text=f"⚠️ Kamu sudah memilih {current_choice}!", show_alert=False, cache_time=4)
             return
 
         # Parse callback data
@@ -627,7 +625,7 @@ def handle_vote(update: Update, context: CallbackContext):
             player_id = int(player_id_str)
         except (ValueError, AttributeError) as e:
             logger.error(f"Invalid callback data: {query.data}")
-            query.answer(text="❌ Invalid vote data!", show_alert=false)
+            query.answer(text="❌ Invalid vote data!", show_alert=False)
             return
 
         # Find selected player
@@ -638,7 +636,7 @@ def handle_vote(update: Update, context: CallbackContext):
         )
         
         if not terpilih:
-            query.answer(text="❌ Pemain tidak valid!", show_alert=false, cache_time=3)
+            query.answer(text="❌ Pemain tidak valid!", show_alert=False, cache_time=3)
             return
 
         # Record vote
@@ -666,18 +664,17 @@ def handle_vote(update: Update, context: CallbackContext):
             query.edit_message_reply_markup(
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
-            query.answer(text=f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=false)
+            query.answer(text=f"✅ Kamu memilih {terpilih.get('nama', 'unknown')}!", show_alert=False)
         except Exception as e:
             logger.error(f"Error updating reply markup: {e}")
-            query.answer(text="❌ Gagal memperbarui pilihan.", show_alert=false)
+            query.answer(text="❌ Gagal memperbarui pilihan.", show_alert=False)
 
     except Exception as e:
         logger.error(f"Error in handle_vote: {e}")
         try:
-            query.answer(text="❌ Terjadi kesalahan saat voting!", show_alert=false)
+            query.answer(text="❌ Terjadi kesalahan saat voting!", show_alert=False)
         except:
             pass
-
 
 
 #  ini buat voting
