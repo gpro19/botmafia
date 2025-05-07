@@ -584,13 +584,13 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
         if game['message_id']:            
             context.bot.send_message(
                 chat_id=chat_id,
-                text="📜 *Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
+                text="*Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
                 parse_mode='Markdown'
             )
         else:
             game['message_id'] = context.bot.send_message(
                 chat_id=chat_id,
-                text="📜 *Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
+                text="*Hasil Deskripsi:*\n" + "\n".join(hasil_deskripsi),
                 parse_mode='Markdown'
             ).message_id
     except Exception as e:
@@ -634,6 +634,7 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
         name=f"voting_{chat_id}"
     )
 
+
 def handle_vote(update: Update, context: CallbackContext):
     query = update.callback_query
     try:
@@ -641,28 +642,28 @@ def handle_vote(update: Update, context: CallbackContext):
         chat_id = query.message.chat.id
         game = get_game(chat_id)
 
-        # Validate game state
+        # [1. Validasi State Game - TIDAK DIUBAH]
         if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
             query.answer(text="❌ Waktu voting sudah habis!", show_alert=False)
             return
 
-        # Check if voter is eliminated
+        # [2. Cek Pemain Tereliminasi - TIDAK DIUBAH]
         if any(voter_id == p['id'] for p in game.get('tereliminasi', [])):
             query.answer(text="❌ Kamu sudah tereliminasi!", show_alert=False, cache_time=5)
             return
 
-        # Blokir pemain yang terlibat seri
+        # [3. Blokir Pemain Terlibat Seri - TIDAK DIUBAH]
         if 'pemain_terlibat_seri' in game and voter_id in game['pemain_terlibat_seri']:
             query.answer(text="⚠️ Kamu tidak boleh vote karena terlibat seri!", show_alert=False)
             return
 
-        # Cek sudah pernah vote
+        # [4. Cek Sudah Vote - TIDAK DIUBAH]
         if voter_id in game.get('suara', {}):
             current_choice = game['suara'][voter_id].get('nama', 'unknown')
             query.answer(text=f"⚠️ Kamu sudah memilih {current_choice}!", show_alert=False, cache_time=4)
             return
 
-        # Parse callback data
+        # [5. Parse Callback - TIDAK DIUBAH]
         try:
             _, player_id_str = query.data.split('_')
             player_id = int(player_id_str)
@@ -671,12 +672,12 @@ def handle_vote(update: Update, context: CallbackContext):
             query.answer(text="❌ Invalid vote data!", show_alert=False)
             return
 
-        # Prevent self-voting
+        # [6. Cegah Vote Diri Sendiri - TIDAK DIUBAH]
         if voter_id == player_id:
             query.answer(text="❌ Tidak boleh memilih diri sendiri!", show_alert=False)
             return
 
-        # Find selected player
+        # [7. Cari Pemain Target - TIDAK DIUBAH]
         terpilih = next(
             (p for p in game.get('pemain', []) 
              if p.get('id') == player_id and p not in game.get('tereliminasi', [])), 
@@ -687,24 +688,32 @@ def handle_vote(update: Update, context: CallbackContext):
             query.answer(text="❌ Pemain tidak valid!", show_alert=False, cache_time=3)
             return
 
-        # Record vote
+        # [8. Rekam Vote - TIDAK DIUBAH]
         game.setdefault('suara', {})[voter_id] = terpilih
         
-        # Count votes
-        vote_count = {p['id']: 0 for p in game.get('pemain', []) if p not in game.get('tereliminasi', [])}
+        ##### [9. MODIFIKASI: Filter Pemain yang Ditampilkan] #####
+        # Daftar pemain aktif (belum tereliminasi)
+        active_players = [p for p in game['pemain'] if p not in game.get('tereliminasi', [])]
+        
+        # Jika sedang revote, filter hanya pemain yang seri
+        if 'pemain_terlibat_seri' in game:
+            active_players = [p for p in active_players if p['id'] in game['pemain_terlibat_seri']]
+        ##### END MODIFIKASI #####
+
+        # [10. Hitung Suara - DIUBAH untuk filter aktif_players]
+        vote_count = {p['id']: 0 for p in active_players}
         for v in game.get('suara', {}).values():
-            if v and 'id' in v:
+            if v and 'id' in v and v['id'] in vote_count:
                 vote_count[v['id']] += 1
 
-        # Build clean keyboard without self indicator
+        # [11. Bangun Keyboard - DIUBAH untuk filter aktif_players]
         keyboard = []
-        for p in game.get('pemain', []):
-            if p not in game.get('tereliminasi', []):
-                count = vote_count.get(p.get('id', 0), 0)
-                btn_text = f"{p.get('nama', 'Unknown')} ({count})"
-                keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"vote_{p['id']}")])
+        for p in active_players:  # Gunakan active_players bukan game['pemain']
+            count = vote_count.get(p['id'], 0)
+            btn_text = f"{p.get('nama', 'Unknown')} ({count})"
+            keyboard.append([InlineKeyboardButton(btn_text, callback_data=f"vote_{p['id']}")])
 
-        # Update button counts
+        # [12. Update Tampilan - TIDAK DIUBAH]
         try:
             query.edit_message_reply_markup(
                 reply_markup=InlineKeyboardMarkup(keyboard)
@@ -720,6 +729,7 @@ def handle_vote(update: Update, context: CallbackContext):
             query.answer(text="❌ Terjadi kesalahan saat voting!", show_alert=False)
         except:
             pass
+
 
 
 #  ini buat voting
@@ -838,7 +848,7 @@ def cek_pemenang(context: CallbackContext, chat_id):
                 teks += f"- {pemain['nama']} : {role}\n"
                 
         
-        teks += f"Kata Warga: {game['kata_rahasia']['warga']}\n"
+        teks += f"\nKata Warga: {game['kata_rahasia']['warga']}\n"
         teks += f"Kata Spy: {game['kata_rahasia']['spy']}\n"
                 
     elif jumlah_spy == 0:  # Villagers win
@@ -956,7 +966,7 @@ def daftar_pemain(update: Update, context: CallbackContext):
     
     daftar = "\n".join([f"{i+1}. {p['nama']}" for i, p in enumerate(game['pemain'])])
     update.message.reply_text(
-        f"👥 Daftar Pemain ({len(game['pemain'])} orang):\n{daftar}"
+        f"Daftar Pemain ({len(game['pemain'])} orang):\n{daftar}"
     )
 
 def error_handler(update: Update, context: CallbackContext):
