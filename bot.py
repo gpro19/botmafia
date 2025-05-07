@@ -689,10 +689,6 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
                 logger.error(f"Gagal mengirim notifikasi ke {pemain['nama']}: {e}")
 
     if belum_kirim:
-        #context.bot.send_message(
-            #chat_id=chat_id,
-            #text="❌ Pemain berikut tidak mengirim deskripsi: " + ", ".join(belum_kirim)
-        #)
 
     # Compile descriptions
     hasil_deskripsi = []
