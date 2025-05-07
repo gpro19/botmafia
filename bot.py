@@ -688,9 +688,7 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
             except Exception as e:
                 logger.error(f"Gagal mengirim notifikasi ke {pemain['nama']}: {e}")
 
-    if belum_kirim:
-
-    # Compile descriptions
+   
     hasil_deskripsi = []
     for pemain in game['pemain']:
         if pemain['id'] in game['deskripsi_pemain']:
