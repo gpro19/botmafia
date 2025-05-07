@@ -606,14 +606,13 @@ def mulai_permainan(update: Update, context: CallbackContext):
     # Select secret word
  
     kata_rahasia = pilih_kata()
-
-    
-   game['kata_rahasia'] = {
+    game['kata_rahasia'] = {
         'warga': kata_rahasia['warga'],
         'spy': kata_rahasia['spy'],
         'kategori': kata_rahasia['kategori'],
         'kelompok_kata': kata_rahasia['kelompok_kata']  # Optional: for debugging
     }
+
 
     # Send roles to players privately
     for pemain in game['pemain']:
