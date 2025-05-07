@@ -388,9 +388,9 @@ def gabung(update: Update, context: CallbackContext):
         update.message.reply_text("❌ Silakan gabung di grup yang sedang bermain!")
         return
 
-    #if update.effective_chat.id != ALLOWED_GROUP_ID:
-        #update.message.reply_text("❌ Bot sedang dalam pengembangan dan hanya bisa digunakan di grup tertentu!")
-        #return    
+    if update.effective_chat.id != ALLOWED_GROUP_ID:
+        update.message.reply_text("❌ Bot sedang dalam pengembangan dan hanya bisa digunakan di grup tertentu!")
+        return    
 
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
@@ -607,11 +607,6 @@ def mulai_permainan(update: Update, context: CallbackContext):
  
     kata_rahasia = pilih_kata()
 
-    game['kata_rahasia'] = {
-        'warga': kata_warga,
-        'spy': kata_spy,
-        'kategori': kategori
-    }
     
    game['kata_rahasia'] = {
         'warga': kata_rahasia['warga'],
