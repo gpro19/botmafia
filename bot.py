@@ -22,12 +22,112 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 TOKEN = "7590020235:AAGRKmt_neQTk1bvM78ugivuH0qvivlh_3s"
 # Game configuration
+ALLOWED_GROUP_ID = -1001651683956  # Group ID where bot is allowed to operate
+
 KATA = {
-    "Restoran": ["Menu", "Pelayan", "Meja", "Piring", "Koki"],
-    "Mall": ["Toko", "Promosi", "Escalator", "Food Court", "Parkir"],
-    "Pasar": ["Pedagang", "Sayur", "Tawar", "Kerumunan", "Kios"],
-    "Bandara": ["Check-in", "Bagasi", "Pramugari", "Boarding Pass", "Keamanan"]
+    # Animals (40+ carefully paired words)
+    "Hewan": [
+        ["Singa", "Harimau", "Macan Tutul"],  # Big cats
+        ["Serigala", "Jakal", "Dingo"],       # Wild dogs
+        ["Kuda", "Zebra", "Keledai"],         # Equines
+        ["Gajah", "Badak", "Kuda Nil"],       # Large mammals
+        ["Orangutan", "Gorila", "Simpanse"],  # Great apes
+        ["Panda", "Beruang", "Koala"],        # Bear-like
+        ["Burung Hantu", "Elang", "Falcon"],  # Birds of prey
+        ["Flamingo", "Bangau", "Pelikan"],    # Wading birds
+        ["Kupu-kupu", "Capung", "Belalang"],  # Insects
+        ["Ular", "Kadal", "Biawak"]           # Reptiles
+    ],
+
+    # Foods (40+ carefully paired words)  
+    "Makanan": [
+        ["Sate Ayam", "Sate Kambing", "Sosis"],  # Skewered meats
+        ["Nasi Goreng", "Mie Goreng", "Bihun"],  # Fried staples
+        ["Rendang", "Semur", "Gulai"],           # Saucy meats
+        ["Bakso", "Pempek", "Otak-otak"],        # Shaped meats
+        ["Martabak", "Panekuk", "Wafel"],        # Griddle cakes
+        ["Es Krim", "Es Potong", "Sherbet"],     # Frozen treats
+        ["Pizza", "Lasagna", "Cannelloni"],      # Italian
+        ["Sushi", "Sashimi", "Onigiri"],         # Japanese
+        ["Croissant", "Danish", "Pain au Chocolat"], # Pastries
+        ["Coklat", "Truffle", "Fudge"]           # Chocolates
+    ],
+
+    # Professional (30+ paired occupations)
+    "Profesi": [
+        ["Dokter", "Perawat", "Bidan"],         # Medical
+        ["Guru", "Dosen", "Pelatih"],           # Educators
+        ["Programmer", "Hacker", "IT Support"],  # Tech
+        ["Koki", "Baker", "Barista"],           # Food
+        ["Penyanyi", "Musisi", "DJ"],           # Music
+        ["Aktor", "Sutradara", "Produser"],     # Film
+        ["Polisi", "Tentara", "Satpam"],        # Security
+        ["Arsitek", "Insinyur", "Surveyor"],    # Construction
+        ["Pilot", "Pramugari", "ATC"],          # Aviation
+        ["Petani", "Nelayan", "Peternak"]       # Agriculture
+    ],
+
+    # Sports (25+ similar terms)
+    "Olahraga": [
+        ["Sepak Bola", "Futsal", "Rugby"],     # Ball sports
+        ["Basket", "Netball", "Voli"],         # Net sports
+        ["Tenis", "Bulu Tangkis", "Squash"],   # Racket sports
+        ["Renang", "Menyelam", "Polo Air"],    # Water sports
+        ["Lari", "Maraton", "Lari Estafet"],   # Running
+        ["Binaraga", "Angkat Besi", "Crossfit"], # Strength
+        ["Panahan", "Menembak", "Lempar Tombak"], # Precision
+        ["Balap Motor", "Balap Mobil", "Drag Race"] # Motorsports
+    ],
+    
+    # Office (25+ paired items)
+    "Perkantoran": [
+        ["Printer", "Scanner", "Fotokopi"],    # Office equipment
+        ["Proyektor", "Monitor", "TV Kantor"], # Display
+        ["Keyboard", "Mouse", "Trackpad"],     # Input devices
+        ["Stapler", "Hole Punch", "Paper Clip"], # Stationery
+        ["Kursi", "Meja", "Filing Cabinet"],   # Furniture
+        ["Air Conditioner", "Kipas", "Pemanas"], # Climate
+        ["Whiteboard", "Papan Tulis", "Flipchart"], # Writing
+        ["ID Card", "Name Tag", "Visitor Pass"] # Identification
+    ],
+
+    # Music (30+ similar terms)  
+    "Musik": [
+        ["Gitar", "Bass", "Ukulele"],         # Strings
+        ["Piano", "Keyboard", "Organ"],       # Keys
+        ["Drum", "Bongo", "Kendang"],          # Percussion
+        ["Terompet", "Trombone", "Saxophone"], # Brass
+        ["Flute", "Recorder", "Klarnet"],     # Woodwinds
+        ["Pop", "Rock", "Jazz"],              # Genres
+        ["Konser", "Festival", "Gig"],        # Events
+        ["Spotify", "Apple Music", "Joox"]    # Streaming
+    ],
+
+    # Nature (30+ similar items)
+    "Alam": [
+        ["Gunung", "Bukit", "Lembah"],        # Landforms
+        ["Sungai", "Danau", "Rawa"],          # Water bodies
+        ["Pantai", "Tebing", "Karst"],        # Coastal
+        ["Hujan", "Salju", "Kabut"],          # Weather
+        ["Matahari", "Bulan", "Bintang"],     # Celestial
+        ["Daun", "Ranting", "Bunga"],         # Plant parts
+        ["Pasir", "Kerikil", "Batu"],         # Minerals
+        ["Angin", "Badai", "Tornado"]         # Wind
+    ],
+
+    # Tech (30+ similar terms)
+    "Teknologi": [
+        ["Smartphone", "Tablet", "Smartwatch"], # Devices
+        ["WiFi", "Hotspot", "Ethernet"],      # Networking
+        ["Android", "iOS", "HarmonyOS"],      # OS
+        ["Python", "Java", "JavaScript"],     # Languages
+        ["VR", "AR", "MR"],                   # Reality
+        ["Drone", "Robot", "RC Car"],         # Robotics
+        ["YouTube", "TikTok", "Instagram"],   # Platforms
+        ["Cryptocurrency", "NFT", "Blockchain"] # Web3
+    ]
 }
+
 
 # Game state management
 games: Dict[int, Dict[str, Any]] = {}
@@ -80,6 +180,30 @@ def cleanup_jobs(context: CallbackContext, chat_id: int):
             logger.error(f"Gagal hapus job {job_info['id']}: {e}")
     
     game['jobs'] = []
+
+def pilih_kata():
+    # Choose a random category
+    kategori = random.choice(list(KATA.keys()))
+    
+    # Select a random word group from that category
+    kelompok_kata = random.choice(KATA[kategori])
+    
+    # Make a copy of the word group to work with
+    kata_kandidat = kelompok_kata.copy()
+    
+    # Randomly select the civilian word and remove it from candidates
+    kata_warga = random.choice(kata_kandidat)
+    kata_kandidat.remove(kata_warga)
+    
+    # Select spy word from remaining words (ensuring it's different)
+    kata_spy = random.choice(kata_kandidat) if kata_kandidat else kata_warga  # fallback
+    
+    return {
+        'kategori': kategori,
+        'warga': kata_warga, 
+        'spy': kata_spy,
+        'kelompok_kata': kelompok_kata  # Optional: for reference
+    }
 
 
 def reset_game(chat_id: int, context: CallbackContext = None):
@@ -248,7 +372,7 @@ def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         "🎮 *GAME TEBAK SPY*\n"
         "⚙️ **Cara Main:**\n"
-        "1. Ketik `/gabung` untuk daftar\n"
+        "1. Ketik `/game` untuk pendaftaran\n"
         "2. Admin ketik `/mulai` untuk mulai permainan\n"
         "3. Bot akan membagikan peran (Spy/Warga)\n"
         "4. Deskripsikan kata rahasia tanpa bocorin!\n"
@@ -263,6 +387,10 @@ def gabung(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Silakan gabung di grup yang sedang bermain!")
         return
+
+    #if update.effective_chat.id != ALLOWED_GROUP_ID:
+        #update.message.reply_text("❌ Bot sedang dalam pengembangan dan hanya bisa digunakan di grup tertentu!")
+        #return    
 
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
@@ -476,20 +604,21 @@ def mulai_permainan(update: Update, context: CallbackContext):
     game['warga'] = all_players[num_spies:]
 
     # Select secret word
-    kategori = random.choice(list(KATA.keys()))
-    kata_warga = random.choice(KATA[kategori])
-    kata_spy = random.choice(KATA[kategori])
-    
-    # Ensure spy and warga words are different
-    while kata_spy == kata_warga:
-        kata_spy = random.choice(KATA[kategori])
-    
+ 
+    kata_rahasia = pilih_kata()
+
     game['kata_rahasia'] = {
         'warga': kata_warga,
         'spy': kata_spy,
         'kategori': kategori
     }
-
+    
+   game['kata_rahasia'] = {
+        'warga': kata_rahasia['warga'],
+        'spy': kata_rahasia['spy'],
+        'kategori': kata_rahasia['kategori'],
+        'kelompok_kata': kata_rahasia['kelompok_kata']  # Optional: for debugging
+    }
 
     # Send roles to players privately
     for pemain in game['pemain']:
@@ -527,7 +656,7 @@ def mulai_permainan(update: Update, context: CallbackContext):
         "*Peran sudah dibagikan!*\n"
         f"Spy: {len(game['spy'])} orang | Warga: {len(game['warga'])} orang\n\n"
         "⏳ *Fase Deskripsi dimulai!*\n"
-        "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 50 detik).",
+        "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 40 detik).",
         parse_mode='Markdown'
     )
 
@@ -537,7 +666,7 @@ def mulai_permainan(update: Update, context: CallbackContext):
     # Description phase timer
     context.job_queue.run_once(
         lambda ctx: akhir_deskripsi(ctx, chat_id),
-        35,
+        40,
         context=chat_id,
         name=f"deskripsi_{chat_id}"
     )
@@ -566,10 +695,10 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
                 logger.error(f"Gagal mengirim notifikasi ke {pemain['nama']}: {e}")
 
     if belum_kirim:
-        context.bot.send_message(
-            chat_id=chat_id,
-            text="❌ Pemain berikut tidak mengirim deskripsi: " + ", ".join(belum_kirim)
-        )
+        #context.bot.send_message(
+            #chat_id=chat_id,
+            #text="❌ Pemain berikut tidak mengirim deskripsi: " + ", ".join(belum_kirim)
+        #)
 
     # Compile descriptions
     hasil_deskripsi = []
@@ -771,7 +900,7 @@ def akhir_voting(context: CallbackContext, chat_id):
             context.bot.send_message(
                 chat_id=chat_id,
                 text=f"🤝 *Hasil seri!* ({nama_seri})\n"
-                     "🗳️ Voting ulang (hanya pemain lain yang boleh memilih)\n"
+                     "🗳️ Voting ulang\n"
                      f"⏱ Waktu: 30 detik",
                 parse_mode='Markdown'
             )
@@ -805,7 +934,7 @@ def akhir_voting(context: CallbackContext, chat_id):
             role = "🕵️ Spy" if tereliminasi in game['spy'] else "👨 Warga"
             context.bot.send_message(
                 chat_id=chat_id,
-                text=f"☠️ {tereliminasi['nama']} tereliminasi! ({role})",
+                text=f"*{tereliminasi['nama']} dipilih*, dia adalah {role}",
                 parse_mode='Markdown'
             )
 
@@ -848,8 +977,8 @@ def cek_pemenang(context: CallbackContext, chat_id):
                 teks += f"- {pemain['nama']} : {role}\n"
                 
         
-        teks += f"\nKata Warga: {game['kata_rahasia']['warga']}\n"
-        teks += f"Kata Spy: {game['kata_rahasia']['spy']}\n"
+        teks += f"\n*Kata Warga:* {game['kata_rahasia']['warga']}\n"
+        teks += f"*Kata Spy:* {game['kata_rahasia']['spy']}\n"
                 
     elif jumlah_spy == 0:  # Villagers win
         teks = f"* Permainan Berakhir!*\nTim pemenang: *Warga*\n\n"
@@ -869,8 +998,8 @@ def cek_pemenang(context: CallbackContext, chat_id):
                 role = "🕵️ Spy" if pemain in game['spy'] else "👨🏼 Warga"
                 teks += f"- {pemain['nama']} : {role}\n"
                 
-        teks += f"\nKata Warga: {game['kata_rahasia']['warga']}\n"
-        teks += f"Kata Spy: {game['kata_rahasia']['spy']}\n"
+        teks += f"\n*Kata Warga:* {game['kata_rahasia']['warga']}\n"
+        teks += f"*Kata Spy:* {game['kata_rahasia']['spy']}\n"
                 
     else:  # Continue to next round
         game['round'] += 1  # Increment round counter
@@ -882,11 +1011,11 @@ def cek_pemenang(context: CallbackContext, chat_id):
             chat_id=chat_id,
             text=(
                 f"*Putaran deskripsi ke-{game['round']} dimulai, silakan mulai deskripsi pada waktu yang sama.*\n\n"
-                "🎭 *Peran sudah dibagikan!*\n"
+                "*Peran sudah dibagikan!*\n"
                 f"Spy: {len([s for s in game['spy'] if s not in game['tereliminasi']])} orang | "
                 f"Warga: {len([w for w in game['warga'] if w not in game['tereliminasi']])} orang\n\n"
                 "⏳ *Fase Deskripsi dimulai!*\n"
-                "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 50 detik)."
+                "Kirim deskripsi kata Anda via chat privat ke bot ini (waktu 40 detik)."
             ),
             parse_mode='Markdown'
         )
@@ -895,7 +1024,7 @@ def cek_pemenang(context: CallbackContext, chat_id):
         # New description phase timer
         context.job_queue.run_once(
             lambda ctx: akhir_deskripsi(ctx, chat_id),
-            35,
+            40,
             context=chat_id,
             name=f"deskripsi_{chat_id}"
         )
@@ -984,7 +1113,7 @@ def run_bot():
 
     # Command handlers
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("gabung", gabung))
+    dp.add_handler(CommandHandler("game", gabung))
     dp.add_handler(CommandHandler("mulai", mulai_permainan))
     dp.add_handler(CommandHandler("cancel", cancel_game))
     dp.add_handler(CommandHandler("players", daftar_pemain))
