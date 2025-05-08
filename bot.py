@@ -504,23 +504,27 @@ def join_request(update: Update, context: CallbackContext):
         return
 
     try:
-        token = context.args[0]
-        parts = token.split('_')
-        
-        if len(parts) != 2 or parts[0] != "join":
-            raise ValueError
+        if not context.args or not context.args[0].startswith('join_'):
+            raise ValueError("Format token tidak valid")
             
-        # Decode token
-        encoded_token = parts[1]
-        decoded_value = decode_chat_id(encoded_token)
-        # Pisahkan user_id dan chat_id
-        timeku, chat_id = decoded_value.split('_')
-        chat_id = int(chat_id)
+        # Ambil bagian encoded setelah join_
+        encoded_token = context.args[0][5:]
         
+        # Decode token
+        decoded_value = decode_chat_id(encoded_token)
+        
+        # Pisahkan timestamp dan chat_id
+        try:
+            time_str, chat_id_str = decoded_value.split('_')
+            timeku = int(time_str)
+            chat_id = int(chat_id_str)
+        except (ValueError, IndexError):
+            raise ValueError("Format decoded tidak valid")
+  
 
   
         # Validate token time (10 minute window)
-        if abs(time.time() - int(timeku)) > 600:
+        if abs(time.time() - timeku) > 600:
             update.message.reply_text("⌛ Link bergabung sudah kadaluarsa!")
             return
 
