@@ -365,23 +365,40 @@ def auto_start_game(context: CallbackContext):
 
 
 def start(update: Update, context: CallbackContext):
+    # Jika berasal dari inline join
     if context.args and context.args[0].startswith('join_'):
         join_request(update, context)
         return
-        
-    update.message.reply_text(
-        "🎮 *GAME TEBAK SPY*\n"
-        "⚙️ **Cara Main:**\n"
-        "1. Ketik `/game` untuk pendaftaran\n"
-        "2. Admin ketik `/mulai` untuk mulai permainan\n"
-        "3. Bot akan membagikan peran (Spy/Warga)\n"
-        "4. Deskripsikan kata rahasia tanpa bocorin!\n"
-        "5. Voting untuk menemukan Spy!\n\n"
-        "🏆 **Pemenang:**\n"
-        "- Spy menang jika bertahan sampai akhir\n"
-        "- Warga menang jika berhasil eliminasi semua Spy",
-        parse_mode='Markdown'
+    
+    # Ambil nama pengguna yang menekan start
+    user_name = update.effective_user.first_name or update.effective_user.full_name
+
+    # Teks pesan dengan nama pengguna
+    start_text = (
+        f"Hai {user_name}! Saya host-bot game tebak spy di grup Telegram. "
+        "Tambahkan saya ke grup untuk mulai bermain game tebak spy yang menyenangkan!"
     )
+
+    # Membuat inline keyboard dengan layout 2 atas 1 bawah
+    keyboard = [
+        [
+            InlineKeyboardButton("Support Grup", url="https://t.me/DutabotSupport"),
+            InlineKeyboardButton("Dev", url="https://t.me/MzCoder")
+        ],
+        [
+            InlineKeyboardButton("Tambahkan ke Grup", 
+                               url=f"https://t.me/{context.bot.username}?startgroup=true")
+        ]
+    ]
+
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    update.message.reply_text(
+        text=start_text,
+        parse_mode='Markdown',
+        reply_markup=reply_markup
+    )
+
 
 def gabung(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
