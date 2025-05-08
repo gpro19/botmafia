@@ -1168,7 +1168,7 @@ def run_flask():
     app.run(host='0.0.0.0', port=8000)
 
 # Run bot
-def run_bot():
+def main():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
