@@ -518,21 +518,25 @@ def join_request(update: Update, context: CallbackContext):
         return
 
     if len(game['pemain']) >= 8:
-        update.message.reply_text("🫣 Pemain sudah penuh (8/8)!")
+        update.message.reply_text("😞 Pemain sudah penuh (8/8)!")
         return
 
     game['pemain'].append({'id': user_id, 'nama': username})
-
+    
+    chat = context.bot.get_chat(chat_id)
+    group_name = chat.title if chat.title else "grup ini"
+        
     update.message.reply_text(
-        f"✅ KAMU TELAH BERGABUNG!\n"
-        f"Sekarang ada {len(game['pemain'])}/8 pemain.\n"
-        "Kembali ke grup untuk menunggu permainan dimulai."
+        f"Kamu berhasil bergabung di *{group_name}*\n"
+        f"Sekarang ada *{len(game['pemain'])}/8 pemain.*",
+        parse_mode='Markdown'
     )
-
+    
+    
     try:
         notify_msg = context.bot.send_message(
             chat_id=chat_id,
-            text=f"🎉 [{username}](tg://user?id={user_id}) bergabung! ({len(game['pemain'])}/8)",
+            text=f"[{username}](tg://user?id={user_id}) bergabung ke game",
             parse_mode='Markdown'
         )
         game['pending_messages'].append(notify_msg.message_id)
@@ -758,6 +762,21 @@ def handle_vote(update: Update, context: CallbackContext):
         voter_id = query.from_user.id
         chat_id = query.message.chat.id
         game = get_game(chat_id)
+        
+        is_active_player = any(
+            p['id'] == voter_id 
+            for p in game['pemain'] 
+            if p not in game['tereliminasi']
+        )
+        
+        if not is_active_player:
+            query.answer(
+                text="❌ Hanya pemain yang sedang bermain boleh voting!",
+                show_alert=True,
+                cache_time=10
+            )
+            return
+
 
         # [1. Validasi State Game - TIDAK DIUBAH]
         if not game.get('sedang_berlangsung') or game.get('fase') != 'voting':
@@ -771,7 +790,7 @@ def handle_vote(update: Update, context: CallbackContext):
 
         # [3. Blokir Pemain Terlibat Seri - TIDAK DIUBAH]
         if 'pemain_terlibat_seri' in game and voter_id in game['pemain_terlibat_seri']:
-            query.answer(text="⚠️ Kamu tidak boleh vote karena terlibat seri!", show_alert=False)
+            query.answer(text="⚠️ Kamu tidak boleh  melakukan vote!", show_alert=False)
             return
 
         # [4. Cek Sudah Vote - TIDAK DIUBAH]
