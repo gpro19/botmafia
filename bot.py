@@ -12,6 +12,8 @@ from telegram.error import NetworkError
 import time
 from typing import Dict, Any
 import base64
+import urllib.parse
+
 
 # Setup logging
 logging.basicConfig(
@@ -133,17 +135,32 @@ KATA = {
 # Game state management
 games: Dict[int, Dict[str, Any]] = {}
 
-def encode_chat_id(chat_id: int) -> str:
-    """Encode chat_id to base64 without padding"""
-    return base64.b64encode(f"{chat_id}".encode()).decode().rstrip("=")
 
-def decode_chat_id(encoded: str) -> int:
-    """Decode base64 string to chat_id"""
+def encode_chat_id(combined_value: str) -> str:
+    """Encode untuk URL yang aman"""
+    # Gunakan urlsafe_b64encode dan hilangkan padding
+    encoded = base64.urlsafe_b64encode(combined_value.encode()).decode().rstrip("=")
+    return encoded
+
+def decode_chat_id(encoded: str) -> str:
+    """Decode dari URL-safe base64"""
+    # Tambahkan padding jika diperlukan
     padding = len(encoded) % 4
     if padding:
         encoded += "=" * (4 - padding)
-    decoded = base64.b64decode(encoded.encode()).decode()
-    return int(decoded)
+    
+    try:
+        decoded = base64.urlsafe_b64decode(encoded.encode()).decode()
+        
+        # Validasi format dasar
+        if '_' not in decoded or len(decoded.split('_')) != 2:
+            raise ValueError("Format decoded tidak valid")
+            
+        return decoded
+    except Exception as e:
+        logger.error(f"Decode error: {str(e)}")
+        raise ValueError("Token tidak valid") from e
+
     
     
 def cancel_all_jobs(chat_id: int, job_queue: JobQueue):
@@ -431,14 +448,17 @@ def gabung(update: Update, context: CallbackContext):
 
     # Generate join token with encoded chat_id
     
-    combined_value = f"{int(time.time())}_{chat_id}"
-    # Encode gabungan tersebut
-    join_token = encode_chat_id(combined_value)
+    timestamp = str(int(time.time()))
+    chat_id_str = str(chat_id)
+    combined = f"{timestamp}_{chat_id_str}"
+    tokenku = encode_chat_id(combined)
     
+    # URL encode token untuk jaga-jaga
+    safe_token = urllib.parse.quote(tokenku)
     
     keyboard = [[InlineKeyboardButton(
         "🎮 Gabung Permainan", 
-        url=f"https://t.me/{context.bot.username}?start=join_{join_token}"
+        url=f"https://t.me/{context.bot.username}?start=join_{safe_token}"
     )]]
     
     if not game.get('join_message_id'):
@@ -510,22 +530,16 @@ def join_request(update: Update, context: CallbackContext):
         # Ambil bagian encoded setelah join_
         encoded_token = context.args[0][5:]
         
-        # Decode token
+        # Decode and parse token components
         decoded_value = decode_chat_id(encoded_token)
+        timestamp_str, chat_id_str = decoded_value.split('_')
         
-        # Debug logging
-        logger.info(f"Decoded value: {decoded_value}")
-        
-        # Pisahkan timestamp dan chat_id
-        parts = decoded_value.split('_')
-        if len(parts) != 2:
-            raise ValueError("Format decoded tidak valid")
-            
-        timeku = int(parts[0])  # Bagian pertama adalah timestamp
-        chat_id = int(parts[1])  # Bagian kedua adalah chat_id
+        # Validate types
+        timestamp = int(timestamp_str)
+        chat_id = int(chat_id_str)
   
         # Validate token time (10 minute window)
-        if abs(time.time() - timeku) > 600:
+        if abs(time.time() - timestamp) > 600:
             update.message.reply_text("⌛ Link bergabung sudah kadaluarsa!")
             return
 
@@ -1159,7 +1173,7 @@ def error_handler(update: Update, context: CallbackContext):
             "❌ Error terjadi. Silakan coba lagi atau mulai permainan baru."
         )
 
-
+# Run bot
 @app.route('/')
 def home():
     return "Bot Tebak Spy sedang aktif!"
