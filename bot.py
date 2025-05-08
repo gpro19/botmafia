@@ -3,8 +3,9 @@ import random
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Updater, CommandHandler, CallbackQueryHandler, CallbackContext,
-    MessageHandler, Filters
+    MessageHandler, Filters, JobQueue
 )
+
 import threading
 import logging
 from telegram.error import NetworkError
@@ -143,6 +144,14 @@ def decode_chat_id(encoded: str) -> int:
         encoded += "=" * (4 - padding)
     decoded = base64.b64decode(encoded.encode()).decode()
     return int(decoded)
+    
+    
+def cancel_all_jobs(chat_id: int, job_queue: JobQueue):
+    """Batalkan semua job yang terkait dengan chat_id tertentu"""
+    jobs = job_queue.get_jobs_by_name(str(chat_id))
+    for job in jobs:
+        job.schedule_removal()
+        logger.info(f"Job {job.name} dibatalkan.")    
 
 def get_game(chat_id: int) -> Dict[str, Any]:
     if chat_id not in games:
@@ -285,11 +294,7 @@ def join_time_up(context: CallbackContext):
         )
         game['jobs'].append(start_job)
     else:
-        context.bot.send_message(
-            chat_id=chat_id,
-            text="❌ Pendaftaran ditutup! Minimal 3 pemain diperlukan.",
-            parse_mode='Markdown'
-        )
+        
         reset_game(chat_id)
 
 
@@ -425,12 +430,15 @@ def gabung(update: Update, context: CallbackContext):
         })
 
     # Generate join token with encoded chat_id
-    encoded_chat_id = encode_chat_id(chat_id)
-    join_token = f"join_{int(time.time())}_{encoded_chat_id}"
+    
+    combined_value = f"{int(time.time())}_{chat_id}"
+    # Encode gabungan tersebut
+    join_token = encode_chat_id(combined_value)
+    
     
     keyboard = [[InlineKeyboardButton(
         "🎮 Gabung Permainan", 
-        url=f"https://t.me/{context.bot.username}?start={join_token}"
+        url=f"https://t.me/{context.bot.username}?start=join_{join_token}"
     )]]
     
     if not game.get('join_message_id'):
@@ -499,15 +507,20 @@ def join_request(update: Update, context: CallbackContext):
         token = context.args[0]
         parts = token.split('_')
         
-        if len(parts) != 3 or parts[0] != "join":
+        if len(parts) != 2 or parts[0] != "join":
             raise ValueError
             
-        # Decode chat_id from base64
-        encoded_chat_id = parts[2]
-        chat_id = decode_chat_id(encoded_chat_id)
+        # Decode token
+        encoded_token = parts[1]
+        decoded_value = decode_chat_id(encoded_token)
+        # Pisahkan user_id dan chat_id
+        timeku, chat_id = decoded_value.split('_')
+        chat_id = int(chat_id)
+        
 
+  
         # Validate token time (10 minute window)
-        if abs(time.time() - int(parts[1])) > 600:
+        if abs(time.time() - int(timeku)) > 600:
             update.message.reply_text("⌛ Link bergabung sudah kadaluarsa!")
             return
 
@@ -579,6 +592,13 @@ def join_request(update: Update, context: CallbackContext):
     except Exception as e:
         logger.error(f"Gagal update pesan gabung: {e}")
 
+    # Cek jika pemain sudah penuh
+    if len(game['pemain']) == 8:
+        cancel_game_jobs(chat_id, context)
+        mulai_permainan(update, context)
+                        
+            
+          
 def mulai_permainan(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
         update.message.reply_text("❌ Hanya bisa dilakukan di grup!")
@@ -587,6 +607,9 @@ def mulai_permainan(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     game = get_game(chat_id)
 
+    # Batalkan semua job yang masih berjalan
+    cancel_all_jobs(chat_id, context.job_queue)
+    
     if game['sedang_berlangsung']:
         #update.message.reply_text("🔄 Permainan masih berjalan!")
         return
@@ -703,8 +726,9 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
             try:
                 context.bot.send_message(
                     chat_id=pemain['id'],
-                    text="⚠️ Kamu tidak mengirim deskripsi waktu fase deskripsi!\n"
-                         "Kata kamu tetap akan diperlihatkan di grup dengan pesan default."
+                    text="⏰ *Oops!* Waktu deskripsi habis!\n"
+      	                   "*➖ Tetap lanjutkan permainan! ➖*"
+
                 )
             except Exception as e:
                 logger.error(f"Gagal mengirim notifikasi ke {pemain['nama']}: {e}")
@@ -1081,7 +1105,7 @@ def handle_deskripsi(update: Update, context: CallbackContext):
                 update.message.reply_text("✅ Deskripsi kamu sudah tercatat!")
                 return
     
-    update.message.reply_text("ℹ️ Tidak ada permainan yang membutuhkan deskripsi darimu.")
+    #update.message.reply_text("ℹ️ Tidak ada permainan yang membutuhkan deskripsi darimu.")
 
 def cancel_game(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
@@ -1140,7 +1164,7 @@ def run_bot():
     dp.add_handler(CommandHandler("game", gabung))
     dp.add_handler(CommandHandler("mulai", mulai_permainan))
     dp.add_handler(CommandHandler("cancel", cancel_game))
-    dp.add_handler(CommandHandler("players", daftar_pemain))
+    dp.add_handler(CommandHandler("player", daftar_pemain))
     
     # Message handlers
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command & Filters.private, handle_deskripsi))
