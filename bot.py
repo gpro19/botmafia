@@ -513,15 +513,16 @@ def join_request(update: Update, context: CallbackContext):
         # Decode token
         decoded_value = decode_chat_id(encoded_token)
         
+        # Debug logging
+        logger.info(f"Decoded value: {decoded_value}")
+        
         # Pisahkan timestamp dan chat_id
-        try:
-            time_str, chat_id_str = decoded_value.split('_')
-            timeku = int(time_str)
-            chat_id = int(chat_id_str)
-        except (ValueError, IndexError):
+        parts = decoded_value.split('_')
+        if len(parts) != 2:
             raise ValueError("Format decoded tidak valid")
-  
-
+            
+        timeku = int(parts[0])  # Bagian pertama adalah timestamp
+        chat_id = int(parts[1])  # Bagian kedua adalah chat_id
   
         # Validate token time (10 minute window)
         if abs(time.time() - timeku) > 600:
@@ -529,7 +530,7 @@ def join_request(update: Update, context: CallbackContext):
             return
 
     except Exception as e:
-        logger.error(f"Invalid join token: {e}")
+        logger.error(f"Invalid join token: {str(e)}")
         update.message.reply_text("❌ Link bergabung tidak valid!")
         return
 
