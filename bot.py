@@ -1174,15 +1174,7 @@ def error_handler(update: Update, context: CallbackContext):
         )
 
 # Run bot
-@app.route('/')
-def home():
-    return "Bot Tebak Spy sedang aktif!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=8000)
-
-# Run bot
-def main():
+def run_bot():
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
 
@@ -1201,15 +1193,19 @@ def main():
     
     # Error handler
     dp.add_error_handler(error_handler)
-    
-    # Start the bot in a separate thread
+
+    # Start bot
     updater.start_polling()
+    updater.idle()
 
-    # Start the Flask app in a separate thread
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.start()
-    
-
+@app.route('/')
+def home():
+    return "Bot Tebak Spy sedang aktif!"
 
 if __name__ == '__main__':
-    main()
+    # Run Telegram bot in separate thread
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+
+    # Run Flask
+    app.run(host='0.0.0.0', port=8000)
