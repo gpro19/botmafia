@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 TOKEN = "7590020235:AAGRKmt_neQTk1bvM78ugivuH0qvivlh_3s"
 # Game configuration
-ALLOWED_GROUP_ID = -1001651683956  # Group ID where bot is allowed to operate
+ALLOWED_GROUP_IDS = (-1001651683956, -1002334351077)  # Tuple of allowed IDs
 
 KATA = {
     # Animals (40+ carefully paired words)
@@ -427,7 +427,7 @@ def gabung(update: Update, context: CallbackContext):
         update.message.reply_text("❌ Silakan gabung di grup yang sedang bermain!")
         return
 
-    if update.effective_chat.id != ALLOWED_GROUP_ID:
+    if update.effective_chat.id not in ALLOWED_GROUP_IDS:
         update.message.reply_text("❌ Bot sedang dalam pengembangan dan hanya bisa digunakan di grup tertentu!")
         return    
 
@@ -581,7 +581,6 @@ def join_request(update: Update, context: CallbackContext):
         parse_mode='Markdown'
     )
     
-    
     try:
         notify_msg = context.bot.send_message(
             chat_id=chat_id,
@@ -591,7 +590,8 @@ def join_request(update: Update, context: CallbackContext):
         game['pending_messages'].append(notify_msg.message_id)
     except Exception as e:
         logger.error(f"Gagal kirim notifikasi grup: {e}")
-
+        
+    # Edit pesan join request
     try:
         context.bot.edit_message_text(
             chat_id=chat_id,
@@ -612,11 +612,13 @@ def join_request(update: Update, context: CallbackContext):
         logger.error(f"Gagal update pesan gabung: {e}")
 
     # Cek jika pemain sudah penuh
-    if len(game['pemain']) == 8:
-        cancel_game_jobs(chat_id, context)
-        mulai_permainan(update, context)
-                        
-            
+    try:      
+        if len(game['pemain']) == 8:
+            cancel_all_jobs(chat_id, context.job_queue)
+            mulai_permainan(update, context)
+    except Exception as e:
+        logger.error(f"Gagal mulai Game: {e}")
+
           
 def mulai_permainan(update: Update, context: CallbackContext):
     if update.effective_chat.type == 'private':
@@ -746,13 +748,14 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
                 context.bot.send_message(
                     chat_id=pemain['id'],
                     text="⏰ *Oops!* Waktu deskripsi habis!\n"
-      	                   "*➖ Tetap lanjutkan permainan! ➖*"
-
+      	                   "*➖ Tetap lanjutkan permainan! ➖*",
+     	           parse_mode='Markdown'
                 )
+                
             except Exception as e:
                 logger.error(f"Gagal mengirim notifikasi ke {pemain['nama']}: {e}")
 
-   
+    
     hasil_deskripsi = []
     for pemain in game['pemain']:
         if pemain['id'] in game['deskripsi_pemain']:
@@ -786,7 +789,7 @@ def akhir_deskripsi(context: CallbackContext, chat_id):
         cek_pemenang(context, chat_id)
         return
     
-    
+    time.sleep(5)  # Delay 5 detik
     
     # Create vertical voting buttons
     keyboard = []
