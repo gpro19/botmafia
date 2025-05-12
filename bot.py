@@ -536,7 +536,7 @@ def join_request(update: Update, context: CallbackContext):
         
         # Validate types
         timestamp = int(timestamp_str)
-        chat_id = str(chat_id_str)
+        chat_id = int(chat_id_str)
   
         # Validate token time (10 minute window)
         if abs(time.time() - timestamp) > 600:
@@ -594,7 +594,7 @@ def join_request(update: Update, context: CallbackContext):
     # Edit pesan join request
     try:
         context.bot.edit_message_text(
-            chat_id=chat_id,
+            chat_id=str(chat_id),
             message_id=game['join_message_id'],
             text=f"🎮 *PERMAINAN BARU DI GRUP INI!*\n"
                  "⏱️ Waktu bergabung: 50 detik\n"
