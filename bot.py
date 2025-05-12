@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 TOKEN = "7590020235:AAGRKmt_neQTk1bvM78ugivuH0qvivlh_3s"
 # Game configuration
-ALLOWED_GROUP_IDS = (-1001651683956, -1002334351077)  # Tuple of allowed IDs
+ALLOWED_GROUP_IDS = (-1001651683956, -1002334351077, -1002540626336)  # Tuple of allowed IDs
 
 KATA = {
     # Animals (40+ carefully paired words)
@@ -536,7 +536,7 @@ def join_request(update: Update, context: CallbackContext):
         
         # Validate types
         timestamp = int(timestamp_str)
-        chat_id = int(chat_id_str)
+        chat_id = str(chat_id_str)
   
         # Validate token time (10 minute window)
         if abs(time.time() - timestamp) > 600:
